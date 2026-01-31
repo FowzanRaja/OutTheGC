@@ -7,6 +7,7 @@ import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Textarea } from "../components/ui/Textarea";
 import { HeroImageCards } from "../components/HeroImageCards";
+import { useTrip } from "../context/TripContext";
 
 type PageMode = "home" | "create" | "join";
 
@@ -92,6 +93,7 @@ const FormModal: React.FC<{
   onBack: () => void;
 }> = ({ mode, onBack }) => {
   const navigate = useNavigate();
+  const { setTripId, setMemberId } = useTrip();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -119,6 +121,8 @@ const FormModal: React.FC<{
         organiser_name: createForm.organiser_name,
       });
       saveSession({ tripId: result.trip_id, memberId: result.organiser_member_id });
+      setTripId(result.trip_id);
+      setMemberId(result.organiser_member_id);
       navigate(`/trip/${result.trip_id}/dashboard`, { replace: true });
     } catch (err: unknown) {
       const error = err as { response?: { data?: { detail?: string } } };
@@ -135,6 +139,8 @@ const FormModal: React.FC<{
     try {
       const result = await joinTrip(joinForm.trip_id, { name: joinForm.name });
       saveSession({ tripId: joinForm.trip_id, memberId: result.member_id });
+      setTripId(joinForm.trip_id);
+      setMemberId(result.member_id);
       navigate(`/trip/${joinForm.trip_id}/dashboard`, { replace: true });
     } catch (err: unknown) {
       const error = err as { response?: { data?: { detail?: string } } };
