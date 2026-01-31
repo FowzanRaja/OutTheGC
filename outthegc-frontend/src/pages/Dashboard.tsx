@@ -22,13 +22,13 @@ export const Dashboard: React.FC = () => {
     }
   }, [routeId, tripId, setTripId]);
 
-  // Initialize form states
+  // Initialize form states (only when trip loads or not editing)
   useEffect(() => {
-    if (trip) {
+    if (trip && !editing) {
       setBriefText(trip.trip.brief || "");
       setSelectedRequired(trip.trip.required_member_ids || []);
     }
-  }, [trip]);
+  }, [trip, editing]);
 
   // 2.5 second polling refresh
   useEffect(() => {
