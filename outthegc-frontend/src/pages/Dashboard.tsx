@@ -78,6 +78,7 @@ export const Dashboard: React.FC = () => {
 
   return (
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
@@ -177,6 +178,8 @@ export const Dashboard: React.FC = () => {
               )}
             </Card>
 =======
+=======
+>>>>>>> Stashed changes
     <div className="min-h-screen relative overflow-hidden text-white">
       <div className="absolute inset-0 bg-gradient-to-br from-teal-400 via-sky-400 to-purple-500" />
       <div className="absolute top-20 left-10 w-72 h-72 bg-gradient-to-br from-pink-300 to-rose-300 rounded-full blur-3xl opacity-30 pointer-events-none" />
@@ -188,6 +191,9 @@ export const Dashboard: React.FC = () => {
           <div>
             <h1 className="text-4xl font-bold">{trip.trip.name}</h1>
             <p className="text-white/70">{trip.trip.origin}</p>
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
           </div>
           <div className="flex items-center gap-2">
