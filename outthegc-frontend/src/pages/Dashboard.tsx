@@ -1,19 +1,20 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTrip } from "../context/TripContext";
-import { updateBrief, setRequiredAttendees } from "../api/trips";
+import { setRequiredAttendees } from "../api/trips";
 import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { Badge } from "../components/ui/Badge";
+import { PollCard } from "../components/PollCard";
 
 export const Dashboard: React.FC = () => {
   const { tripId: routeId } = useParams<{ tripId: string }>();
-  const { tripId, trip, isOrganiser, refresh, setTripId } = useTrip();
+  const { tripId, trip, isOrganiser, refresh, setTripId, memberId } = useTrip();
   const navigate = useNavigate();
-  const [editing, setEditing] = useState(false);
-  const [briefText, setBriefText] = useState("");
   const [selectedRequired, setSelectedRequired] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isManageOpen, setIsManageOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   // Sync route trip ID with context
   useEffect(() => {
@@ -25,7 +26,6 @@ export const Dashboard: React.FC = () => {
   // Initialize form states
   useEffect(() => {
     if (trip) {
-      setBriefText(trip.trip.brief || "");
       setSelectedRequired(trip.trip.required_member_ids || []);
     }
   }, [trip]);
@@ -38,23 +38,11 @@ export const Dashboard: React.FC = () => {
 
   if (!trip) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">Loading...</div>;
 
-  const handleSaveBrief = async () => {
+  const handleSaveRequired = async (requiredIds: string[]) => {
     setLoading(true);
     try {
-      await updateBrief(trip.trip.id, briefText);
-      setEditing(false);
-      refresh();
-    } catch (err: any) {
-      console.error("Failed to update brief:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSaveRequired = async () => {
-    setLoading(true);
-    try {
-      await setRequiredAttendees(trip.trip.id, selectedRequired);
+      await setRequiredAttendees(trip.trip.id, requiredIds);
+      setSelectedRequired(requiredIds);
       refresh();
     } catch (err: any) {
       console.error("Failed to update required attendees:", err);
@@ -69,7 +57,27 @@ export const Dashboard: React.FC = () => {
     );
   };
 
+  const handleRemoveRequired = async (memberId: string) => {
+    if (!isOrganiser) return;
+    const next = selectedRequired.filter((id) => id !== memberId);
+    await handleSaveRequired(next);
+  };
+
+  const handleCopyTripId = async () => {
+    try {
+      await navigator.clipboard.writeText(trip.trip.id);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (err) {
+      console.error("Failed to copy trip ID", err);
+    }
+  };
+
+  const activePolls = trip.polls.filter((p) => p.is_open);
+  const endedPolls = trip.polls.filter((p) => !p.is_open);
+
   return (
+<<<<<<< Updated upstream
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
@@ -168,74 +176,247 @@ export const Dashboard: React.FC = () => {
                 </div>
               )}
             </Card>
+=======
+    <div className="min-h-screen relative overflow-hidden text-white">
+      <div className="absolute inset-0 bg-gradient-to-br from-teal-400 via-sky-400 to-purple-500" />
+      <div className="absolute top-20 left-10 w-72 h-72 bg-gradient-to-br from-pink-300 to-rose-300 rounded-full blur-3xl opacity-30 pointer-events-none" />
+      <div className="absolute bottom-32 right-20 w-96 h-96 bg-gradient-to-br from-cyan-300 to-blue-300 rounded-full blur-3xl opacity-20 pointer-events-none" />
+      <div className="absolute top-1/2 left-1/3 w-80 h-80 bg-gradient-to-br from-purple-300 to-pink-300 rounded-full blur-3xl opacity-20 pointer-events-none" />
+      <div className="relative z-10 max-w-7xl mx-auto px-4 py-8">
+        {/* Top Bar */}
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-4xl font-bold">{trip.trip.name}</h1>
+            <p className="text-white/70">{trip.trip.origin}</p>
+>>>>>>> Stashed changes
           </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Required Attendees (Organiser) */}
-            <Card className={!isOrganiser ? "opacity-50" : ""}>
-              <h2 className="text-lg font-semibold mb-4">Required Attendees</h2>
-              <div className="space-y-2 mb-4">
-                {trip.members.map((m) => (
-                  <label key={m.id} className={`flex items-center gap-2 ${isOrganiser ? "cursor-pointer hover:opacity-70" : "cursor-not-allowed"}`}>
-                    <input
-                      type="checkbox"
-                      checked={selectedRequired.includes(m.id)}
-                      onChange={() => toggleRequired(m.id)}
-                      disabled={!isOrganiser}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm">{m.name}</span>
-                  </label>
-                ))}
-              </div>
-              <Button
-                variant="primary"
-                onClick={handleSaveRequired}
-                disabled={loading || !isOrganiser}
-                title={!isOrganiser ? "Organiser only" : ""}
-                className="w-full text-xs py-2"
-              >
-                Save
-              </Button>
-            </Card>
-
-            {/* Options */}
-            <Card>
-              <Button
-                variant="primary"
-                onClick={() => navigate(`/trip/${trip.trip.id}/options`)}
-                disabled={!isOrganiser}
-                title={!isOrganiser ? "Organiser only" : ""}
-                className="w-full"
-              >
-                Generate Options
-              </Button>
-            </Card>
-
-            {/* Trip Info */}
-            <Card>
-              <h3 className="text-sm font-semibold mb-2">Trip ID</h3>
-              <p className="text-xs font-mono bg-slate-800 p-2 rounded break-all">{trip.trip.id}</p>
-            </Card>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-white/70">Trip ID:</span>
+            <span className="text-xs font-mono bg-white/10 border border-white/15 px-2 py-1 rounded">{trip.trip.id}</span>
+            <button
+              type="button"
+              onClick={handleCopyTripId}
+              className="text-xs px-2 py-1 rounded border border-white/15 bg-white/10 hover:bg-white/20 transition"
+            >
+              {copied ? "Copied" : "Copy"}
+            </button>
           </div>
         </div>
 
-        {/* Latest Plan */}
-        {trip.latest_plan && (
-          <Card>
-            <h2 className="text-lg font-semibold mb-4">Latest Plan (v{trip.latest_plan.version_num})</h2>
-            <div className="grid md:grid-cols-2 gap-4">
-              {trip.latest_plan.options.map((opt) => (
-                <div key={opt.id} className="p-4 bg-slate-800/50 rounded">
-                  <p className="font-semibold">{opt.title}</p>
-                  <p className="text-xs text-slate-400">{opt.destination}</p>
-                  <p className="text-xs mt-2">{opt.date_window}</p>
+        {/* Summary Card */}
+        <Card className="mb-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold mb-2">Summary</h2>
+              <p className="text-white/80">{trip.trip.brief || "No brief provided"}</p>
+            </div>
+            <Button
+              variant="secondary"
+              onClick={() => setIsManageOpen(true)}
+              disabled={!isOrganiser}
+              title={!isOrganiser ? "Organiser only" : ""}
+              className="self-start text-xs px-3 py-2"
+            >
+              Manage members
+            </Button>
+          </div>
+
+          <div className="mt-6">
+            <h3 className="text-base font-semibold mb-3">Members</h3>
+            <div className="space-y-2">
+              {trip.members.map((m) => (
+                <div key={m.id} className="flex items-center justify-between py-2 border-b border-white/10 last:border-b-0">
+                  <div className="flex items-center gap-3">
+                    <span className="font-medium">{m.name}</span>
+                    {m.has_submitted_constraints ? (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 border border-white/15">Submitted</span>
+                    ) : (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 border border-white/15">Pending</span>
+                    )}
+                  </div>
+                  <Badge>{m.role}</Badge>
                 </div>
               ))}
             </div>
-          </Card>
-        )}
+
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <span className="text-sm text-white/70">Required attendees:</span>
+              {selectedRequired.length === 0 ? (
+                <span className="text-sm text-white/60">None</span>
+              ) : (
+                selectedRequired.map((id) => {
+                  const member = trip.members.find((m) => m.id === id);
+                  if (!member) return null;
+                  return (
+                    <span
+                      key={id}
+                      className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-white/10 border border-white/15"
+                    >
+                      {member.name}
+                      {isOrganiser && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveRequired(id)}
+                          className="ml-1 text-white/70 hover:text-white"
+                          aria-label={`Remove ${member.name}`}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </span>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </Card>
+
+        {/* Polls Area */}
+        <div className="space-y-8">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Active polls</h2>
+              <Button
+                variant="primary"
+                onClick={() => navigate(`/trip/${trip.trip.id}/polls`)}
+                disabled={!isOrganiser}
+                title={!isOrganiser ? "Organiser only" : ""}
+                className="text-xs px-3 py-1"
+              >
+                Create poll
+              </Button>
+            </div>
+            {activePolls.length === 0 ? (
+              <Card>
+                <p className="text-white/70">No active polls</p>
+              </Card>
+            ) : (
+              <div className="grid gap-4">
+                {activePolls.map((poll) => (
+                  <PollCard
+                    key={poll.id}
+                    poll={poll}
+                    memberId={memberId || ""}
+                    onVote={() => navigate(`/trip/${trip.trip.id}/polls`)}
+                    loading={loading}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <h2 className="text-lg font-semibold mb-4">Ended polls</h2>
+            {endedPolls.length === 0 ? (
+              <Card>
+                <p className="text-white/70">No ended polls</p>
+              </Card>
+            ) : (
+              <div className="grid gap-4">
+                {endedPolls.map((poll) => (
+                  <PollCard
+                    key={poll.id}
+                    poll={poll}
+                    memberId={memberId || ""}
+                    onVote={() => navigate(`/trip/${trip.trip.id}/polls`)}
+                    loading={loading}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Bottom Center CTA */}
+        <div className="mt-10 flex justify-center">
+          <Button
+            variant="primary"
+            onClick={() => navigate(`/trip/${trip.trip.id}/options`)}
+            disabled={!isOrganiser}
+            title={!isOrganiser ? "Organiser only" : ""}
+            className="w-full sm:w-auto px-8 py-3"
+          >
+            Generate trip
+          </Button>
+        </div>
+      </div>
+
+      {isManageOpen && (
+        <ManageMembersModal
+          members={trip.members}
+          requiredIds={selectedRequired}
+          loading={loading}
+          isOrganiser={isOrganiser}
+          onClose={() => setIsManageOpen(false)}
+          onToggle={toggleRequired}
+          onSave={() => handleSaveRequired(selectedRequired)}
+        />
+      )}
+    </div>
+  );
+};
+
+const ManageMembersModal: React.FC<{
+  members: Array<{ id: string; name: string; role: string; has_submitted_constraints: boolean }>;
+  requiredIds: string[];
+  loading: boolean;
+  isOrganiser: boolean;
+  onClose: () => void;
+  onToggle: (id: string) => void;
+  onSave: () => void;
+}> = ({ members, requiredIds, loading, isOrganiser, onClose, onToggle, onSave }) => {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-lg">
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Manage members</h3>
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-white/70 hover:text-white"
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="space-y-3 max-h-[50vh] overflow-auto pr-1">
+            {members.map((m) => (
+              <label key={m.id} className="flex items-center justify-between gap-3 p-2 rounded bg-slate-800/40">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={requiredIds.includes(m.id)}
+                    onChange={() => onToggle(m.id)}
+                    disabled={!isOrganiser}
+                    className="w-4 h-4"
+                  />
+                  <span className="font-medium">{m.name}</span>
+                  {m.has_submitted_constraints ? (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 border border-white/15">Submitted</span>
+                  ) : (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 border border-white/15">Pending</span>
+                  )}
+                </div>
+                <Badge>{m.role}</Badge>
+              </label>
+            ))}
+          </div>
+          <div className="mt-5 flex gap-2 justify-end">
+            <Button variant="secondary" onClick={onClose} className="text-xs px-3 py-2">
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={onSave}
+              disabled={!isOrganiser || loading}
+              className="text-xs px-3 py-2"
+            >
+              Save
+            </Button>
+          </div>
+        </Card>
       </div>
     </div>
   );
