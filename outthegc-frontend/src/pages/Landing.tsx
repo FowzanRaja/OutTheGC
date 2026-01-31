@@ -5,6 +5,7 @@ import { saveSession } from "../utils/storage";
 import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
+import { Textarea } from "../components/ui/Textarea";
 import { HeroImageCards } from "../components/HeroImageCards";
 
 type PageMode = "home" | "create" | "join";
@@ -170,10 +171,11 @@ const FormModal: React.FC<{
               onChange={(e) => setCreateForm({ ...createForm, origin: e.target.value })}
               required
             />
-            <Input
+            <Textarea
               placeholder="Brief description (optional)"
               value={createForm.brief}
               onChange={(e) => setCreateForm({ ...createForm, brief: e.target.value })}
+              rows={5}
             />
             <Input
               placeholder="Your name (organiser)"
