@@ -87,9 +87,12 @@ def create_poll(trip_id: str, req: CreatePollRequest) -> Dict[str, Any]:
         if req.type in ["single", "multi"]:
             if len(req.options) < 2:
                 raise HTTPException(status_code=400, detail="At least 2 options are required")
+
+            # Create poll with auto-assigned option IDs if needed
             options_list = []
             for opt_input in req.options:
                 options_list.append(opt_input.label)
+
             poll = storage.create_poll(trip_id, req.type, req.question, options_list)
         else:
             if not req.slider or not req.slider.left_label or not req.slider.right_label:

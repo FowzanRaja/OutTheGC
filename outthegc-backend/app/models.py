@@ -46,6 +46,7 @@ class PollOption(BaseModel):
 
 
 class SliderConfig(BaseModel):
+    title: Optional[str] = None
     left_label: str
     right_label: str
     min: int = 0

@@ -6,7 +6,11 @@ export async function createPoll(trip_id: string, body: {
   type: "single" | "multi" | "slider";
   question: string;
   options?: Array<{ label: string }>;
+  slider_title?: string;
+  left_label?: string;
+  right_label?: string;
   slider?: {
+    title?: string;
     left_label: string;
     right_label: string;
     min?: number;

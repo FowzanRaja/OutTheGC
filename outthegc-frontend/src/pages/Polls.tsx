@@ -260,6 +260,16 @@ export const Polls: React.FC = () => {
       .map((v) => v.member_name);
   };
 
+  const getSliderStats = (pollId: string) => {
+    const poll = trip.polls.find((p) => p.id === pollId);
+    if (!poll) return { average: 0, votes: [] as Array<{ member_name: string; value: number }> };
+    const votes = poll.votes
+      .filter((v) => typeof v.value === "number")
+      .map((v) => ({ member_name: v.member_name, value: v.value as number }));
+    const average = votes.length > 0 ? votes.reduce((sum, v) => sum + v.value, 0) / votes.length : 0;
+    return { average, votes };
+  };
+
   return (
     <div className="min-h-screen relative overflow-hidden text-white">
       <div className="absolute inset-0 bg-gradient-to-br from-teal-400 via-sky-400 to-purple-500" />

@@ -216,7 +216,7 @@ export const Dashboard: React.FC = () => {
                 onClick={() => navigate(`/trip/${trip.trip.id}/polls`)}
                 className="text-xs px-3 py-1 shadow-lg hover:shadow-xl"
               >
-                Create poll
+                View polls
               </Button>
             ) : (
               <Button
