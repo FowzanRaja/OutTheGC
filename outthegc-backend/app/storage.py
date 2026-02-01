@@ -3,7 +3,7 @@ from datetime import datetime
 from uuid import uuid4
 from app.models import (
     Trip, Member, Constraints, Availability, Poll, Vote, PlanVersion, Option, Feedback,
-    PollOption
+    PollOption, SliderConfig
 )
 
 # ============================================================================
@@ -15,7 +15,7 @@ members: Dict[str, Member] = {}
 constraints_by_member: Dict[str, Constraints] = {}
 availability_by_member: Dict[str, Availability] = {}
 polls: Dict[str, Poll] = {}
-votes: Dict[Tuple[str, str], Vote] = {}  # (poll_id, member_id) -> Vote
+votes: Dict[Tuple[str, str, Optional[str]], Vote] = {}  # (poll_id, member_id, option_id) -> Vote
 plans_by_trip: Dict[str, List[PlanVersion]] = {}
 feedback_by_trip: Dict[str, List[Feedback]] = {}
 
@@ -203,7 +203,13 @@ def upsert_availability(member_id: str, available_dates: List[str]) -> Availabil
 # CRUD: POLLS & VOTING
 # ============================================================================
 
-def create_poll(trip_id: str, poll_type: str, question: str, options: List[str]) -> Poll:
+def create_poll(
+    trip_id: str,
+    poll_type: str,
+    question: str,
+    options: List[str],
+    slider: Optional[SliderConfig] = None
+) -> Poll:
     """Create new poll for trip."""
     trip = get_trip_or_404(trip_id)
     
@@ -216,6 +222,7 @@ def create_poll(trip_id: str, poll_type: str, question: str, options: List[str])
         type=poll_type,
         question=question,
         options=poll_options,
+        slider=slider,
         is_open=True,
         created_at=datetime.utcnow()
     )
@@ -223,7 +230,12 @@ def create_poll(trip_id: str, poll_type: str, question: str, options: List[str])
     return poll
 
 
-def vote(poll_id: str, member_id: str, option_id: str) -> Vote:
+def vote(
+    poll_id: str,
+    member_id: str,
+    option_id: Optional[str] = None,
+    value: Optional[int] = None
+) -> Vote:
     """Record a vote. Rejects if poll closed or option invalid.
     For single choice: replaces previous vote
     For multi choice: adds vote (allows multiple selections)
@@ -235,26 +247,39 @@ def vote(poll_id: str, member_id: str, option_id: str) -> Vote:
     if not poll.is_open:
         raise ValueError(f"Poll {poll_id} is closed")
     
-    # Validate option exists in poll
-    if not any(opt.id == option_id for opt in poll.options):
-        raise ValueError(f"Option {option_id} not found in poll {poll_id}")
+    if poll.type == "slider":
+        if value is None:
+            raise ValueError("Slider vote requires value")
+        if poll.slider is None:
+            raise ValueError("Slider configuration not found for poll")
+        if value < poll.slider.min or value > poll.slider.max:
+            raise ValueError("Slider value out of range")
+    else:
+        if option_id is None:
+            raise ValueError("Option id is required for this poll type")
+        # Validate option exists in poll
+        if not any(opt.id == option_id for opt in poll.options):
+            raise ValueError(f"Option {option_id} not found in poll {poll_id}")
     
     # Get member (validate exists)
     member = get_member_or_404(member_id)
     
     # For single choice polls: remove previous vote if it exists
     if poll.type == "single":
-        # Find and remove existing vote by this member for this poll
-        key_to_remove = None
-        for key in votes:
-            if key[0] == poll_id and key[1] == member_id:
-                key_to_remove = key
-                break
-        if key_to_remove:
-            del votes[key_to_remove]
-    
+        keys_to_remove = [key for key in votes if key[0] == poll_id and key[1] == member_id]
+        for key in keys_to_remove:
+            del votes[key]
+
+    if poll.type == "slider":
+        keys_to_remove = [key for key in votes if key[0] == poll_id and key[1] == member_id]
+        for key in keys_to_remove:
+            del votes[key]
+        vote_key = (poll_id, member_id, None)
+        vote = Vote(poll_id=poll_id, member_id=member_id, option_id=None, value=value)
+        votes[vote_key] = vote
+        return vote
+
     # Store vote with unique key (poll_id, member_id, option_id) for multi-choice support
-    # Use (poll_id, member_id, option_id) as key to allow multiple votes
     vote_key = (poll_id, member_id, option_id)
     vote = Vote(poll_id=poll_id, member_id=member_id, option_id=option_id)
     votes[vote_key] = vote

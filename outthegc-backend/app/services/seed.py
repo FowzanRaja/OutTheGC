@@ -65,7 +65,7 @@ def seed_trip_data(trip_id: str) -> dict:
     from app.models import PollOption
     poll1 = storage.create_poll(
         trip_id=trip_id,
-        poll_type="destination",
+        poll_type="single",
         question="Which destination interests you most?",
         options=["Barcelona, Spain", "Lisbon, Portugal", "Rome, Italy"]
     )
@@ -78,7 +78,7 @@ def seed_trip_data(trip_id: str) -> dict:
     # Poll 2: Date preference
     poll2 = storage.create_poll(
         trip_id=trip_id,
-        poll_type="dates",
+        poll_type="single",
         question="Which date window works best for you?",
         options=["2026-02-03..2026-02-06", "2026-02-10..2026-02-13", "2026-02-17..2026-02-20"]
     )

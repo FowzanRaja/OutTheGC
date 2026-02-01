@@ -31,7 +31,22 @@ def build_poll_response(poll_id: str) -> Dict[str, Any]:
             vote_details.append({
                 "member_id": vote.member_id,
                 "member_name": member_name,
-                "option_id": vote.option_id
+                "option_id": vote.option_id,
+                "value": vote.value
+            })
+
+    if poll.type == "slider":
+        for vote in poll_votes:
+            try:
+                member = storage.get_member_or_404(vote.member_id)
+                member_name = member.name
+            except ValueError:
+                member_name = "Unknown"
+            vote_details.append({
+                "member_id": vote.member_id,
+                "member_name": member_name,
+                "option_id": None,
+                "value": vote.value
             })
     
     return {
@@ -47,6 +62,7 @@ def build_poll_response(poll_id: str) -> Dict[str, Any]:
             }
             for opt in poll.options
         ],
+        "slider": poll.slider.dict() if poll.slider else None,
         "is_open": poll.is_open,
         "created_at": poll.created_at.isoformat(),
         "total_votes": len(poll_votes),
@@ -65,14 +81,23 @@ def create_poll(trip_id: str, req: CreatePollRequest) -> Dict[str, Any]:
         if not storage.is_organiser(req.created_by_member_id, trip_id):
             raise HTTPException(status_code=403, detail="Only organiser can create polls")
         
-        # Create poll with auto-assigned option IDs if needed
-        from uuid import uuid4
-        options_list = []
-        for opt_input in req.options:
-            opt_id = opt_input.id if opt_input.id else str(uuid4())
-            options_list.append(opt_input.label)  # Pass label for storage.create_poll
-        
-        poll = storage.create_poll(trip_id, req.type, req.question, options_list)
+        if req.type not in ["single", "multi", "slider"]:
+            raise HTTPException(status_code=400, detail="Invalid poll type")
+
+        if req.type in ["single", "multi"]:
+            if len(req.options) < 2:
+                raise HTTPException(status_code=400, detail="At least 2 options are required")
+
+            # Create poll with auto-assigned option IDs if needed
+            options_list = []
+            for opt_input in req.options:
+                options_list.append(opt_input.label)
+
+            poll = storage.create_poll(trip_id, req.type, req.question, options_list)
+        else:
+            if not req.slider or not req.slider.left_label or not req.slider.right_label:
+                raise HTTPException(status_code=400, detail="Slider poll requires left_label and right_label")
+            poll = storage.create_poll(trip_id, req.type, req.question, [], req.slider)
         
         return build_poll_response(poll.id)
     except HTTPException:
@@ -105,12 +130,22 @@ def vote_on_poll(trip_id: str, poll_id: str, req: VoteRequest) -> Dict[str, Any]
         # Ensure member belongs to trip
         storage.assert_member_in_trip(req.member_id, trip_id)
         
-        # Ensure option exists
-        if not any(opt.id == req.option_id for opt in poll.options):
-            raise HTTPException(status_code=400, detail="Invalid poll option")
-        
-        # Record vote (upserts if member already voted)
-        storage.vote(poll_id, req.member_id, req.option_id)
+        if poll.type in ["single", "multi"]:
+            if not req.option_id:
+                raise HTTPException(status_code=400, detail="Option id is required")
+            # Ensure option exists
+            if not any(opt.id == req.option_id for opt in poll.options):
+                raise HTTPException(status_code=400, detail="Invalid poll option")
+            # Record vote (upserts if member already voted)
+            storage.vote(poll_id, req.member_id, req.option_id)
+        else:
+            if req.value is None:
+                raise HTTPException(status_code=400, detail="Slider value is required")
+            if poll.slider is None:
+                raise HTTPException(status_code=400, detail="Slider configuration missing")
+            if req.value < poll.slider.min or req.value > poll.slider.max:
+                raise HTTPException(status_code=400, detail="Slider value out of range")
+            storage.vote(poll_id, req.member_id, None, req.value)
         
         # Return updated poll results
         return build_poll_response(poll_id)

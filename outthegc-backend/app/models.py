@@ -45,12 +45,22 @@ class PollOption(BaseModel):
     label: str
 
 
+class SliderConfig(BaseModel):
+    title: Optional[str] = None
+    left_label: str
+    right_label: str
+    min: int = 0
+    max: int = 100
+    step: int = 1
+
+
 class Poll(BaseModel):
     id: str
     trip_id: str
     type: str
     question: str
     options: List[PollOption]
+    slider: Optional[SliderConfig] = None
     is_open: bool
     created_at: datetime
 
@@ -58,7 +68,8 @@ class Poll(BaseModel):
 class Vote(BaseModel):
     poll_id: str
     member_id: str
-    option_id: str
+    option_id: Optional[str] = None
+    value: Optional[int] = None
 
 
 class Option(BaseModel):
@@ -135,12 +146,14 @@ class CreatePollRequest(BaseModel):
     created_by_member_id: str
     type: str
     question: str
-    options: List[CreatePollOptionInput]
+    options: List[CreatePollOptionInput] = []
+    slider: Optional[SliderConfig] = None
 
 
 class VoteRequest(BaseModel):
     member_id: str
-    option_id: str
+    option_id: Optional[str] = None
+    value: Optional[int] = None
 
 
 class ClosePollRequest(BaseModel):
