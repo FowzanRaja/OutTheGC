@@ -63,13 +63,13 @@ const LandingHero: React.FC<{
               <div className="flex flex-col sm:flex-row gap-3 items-center">
                 <button
                   onClick={onCreateClick}
-                  className="px-8 py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold rounded-full hover:from-pink-600 hover:to-rose-600 transition-all transform hover:scale-105 shadow-lg whitespace-nowrap"
+                  className="w-44 inline-flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold rounded-full hover:from-pink-600 hover:to-rose-600 transition-all transform hover:scale-105 shadow-lg whitespace-nowrap"
                 >
                   Create Trip
                 </button>
                 <button
                   onClick={onJoinClick}
-                  className="px-8 py-3 bg-white/20 backdrop-blur border border-white/40 text-white font-bold rounded-full hover:bg-white/30 transition-all flex items-center gap-2 whitespace-nowrap"
+                  className="w-44 inline-flex items-center justify-center gap-2 px-8 py-3 bg-white/20 backdrop-blur border border-white/40 text-white font-bold rounded-full hover:bg-white/30 transition-all whitespace-nowrap"
                 >
                   Join Trip
                   <span className="text-xl">→</span>
