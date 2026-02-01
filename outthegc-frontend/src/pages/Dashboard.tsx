@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { updateBrief } from "../api/trips";
 import { Badge } from "../components/ui/Badge";
@@ -14,6 +14,8 @@ export const Dashboard: React.FC = () => {
   const [briefText, setBriefText] = useState("");
   const [loading, setLoading] = useState(false);
   const [generatingTrip, setGeneratingTrip] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copyButtonRef = useRef<HTMLButtonElement>(null);
   const generatedContent = "";
 
   // Sync route trip ID with context
@@ -35,6 +37,23 @@ export const Dashboard: React.FC = () => {
     const interval = setInterval(() => refresh(), 2500);
     return () => clearInterval(interval);
   }, [tripId, refresh]);
+
+  useEffect(() => {
+    if (!copied) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (copyButtonRef.current && target && copyButtonRef.current.contains(target)) {
+        return;
+      }
+      setCopied(false);
+    };
+
+    window.addEventListener("pointerdown", handlePointerDown, true);
+    return () => window.removeEventListener("pointerdown", handlePointerDown, true);
+  }, [copied]);
 
   if (!trip) {
     return (
@@ -66,6 +85,15 @@ export const Dashboard: React.FC = () => {
 
   const activePolls = trip.polls;
 
+  const handleCopyTripId = async () => {
+    try {
+      await navigator.clipboard.writeText(trip.trip.id);
+      setCopied(true);
+    } catch (err) {
+      console.error("Failed to copy trip id:", err);
+    }
+  };
+
   return (
     <div className="min-h-screen relative overflow-hidden text-white">
       <div className="absolute inset-0 bg-gradient-to-br from-teal-400 via-sky-400 to-purple-500" />
@@ -74,25 +102,59 @@ export const Dashboard: React.FC = () => {
       <div className="absolute top-1/2 left-1/3 w-80 h-80 bg-gradient-to-br from-purple-300 to-pink-300 rounded-full blur-3xl opacity-20 pointer-events-none" />
       <div className="relative z-10 max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2">Group holiday</h1>
-          <p className="text-white/70">{trip.trip.name}</p>
+        <div className="mb-8 flex items-start justify-between gap-6">
+          <div>
+            <h1 className="text-4xl font-bold mb-2">Out the GC</h1>
+            <p className="text-white/70">{trip.trip.name}</p>
+          </div>
+          <Card className="bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl">
+            <div className="flex flex-col gap-2">
+              <span className="text-xs font-semibold text-slate-300">Trip ID</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono bg-slate-800/50 px-3 py-1.5 rounded-full border border-slate-700">
+                  {trip.trip.id}
+                </span>
+                <Button
+                  ref={copyButtonRef}
+                  variant="secondary"
+                  onClick={handleCopyTripId}
+                  aria-label={copied ? "Copied" : "Copy trip id"}
+                  className="p-2 shadow-lg hover:shadow-xl"
+                >
+                  {copied ? (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      className="h-4 w-4"
+                      aria-hidden="true"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M16.704 5.293a1 1 0 0 1 0 1.414l-7.25 7.25a1 1 0 0 1-1.414 0l-3.25-3.25a1 1 0 1 1 1.414-1.414l2.543 2.543 6.543-6.543a1 1 0 0 1 1.414 0Z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  ) : (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      className="h-4 w-4"
+                      aria-hidden="true"
+                    >
+                      <path d="M16 1H6a2 2 0 0 0-2 2v12h2V3h10V1Z" />
+                      <path d="M18 5H10a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm0 16H10V7h8v14Z" />
+                    </svg>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </Card>
         </div>
 
         {/* Content Cards */}
         <div className="space-y-6">
-          {/* Trip ID Box */}
-          <Card className="bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-semibold text-slate-300 mb-1">Trip ID</h3>
-                <p className="text-xs font-mono bg-slate-800/50 px-3 py-2 rounded border border-slate-700 break-all">
-                  {trip.trip.id}
-                </p>
-              </div>
-            </div>
-          </Card>
-
         {/* Trip Brief */}
         <Card className="bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl transition-transform hover:-translate-y-0.5 hover:shadow-2xl">
           <div className="flex items-start justify-between gap-4">
