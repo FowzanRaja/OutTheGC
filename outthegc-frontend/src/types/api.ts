@@ -27,7 +27,6 @@ export type Poll = {
   question: string;
   options: Array<{ id: string; label: string }>;
   slider?: {
-    title?: string;
     left_label: string;
     right_label: string;
     min?: number;

@@ -184,9 +184,6 @@ export const Dashboard: React.FC = () => {
                 <Button variant="primary" onClick={handleSaveBrief} disabled={loading} className="shadow-lg hover:shadow-xl">
                   Save
                 </Button>
-                <Button variant="secondary" onClick={() => setEditing(false)} className="shadow-lg hover:shadow-xl">
-                  Cancel
-                </Button>
               </div>
             </div>
           )}
