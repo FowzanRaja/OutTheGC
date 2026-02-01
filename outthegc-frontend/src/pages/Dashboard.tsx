@@ -36,21 +36,6 @@ export const Dashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, [tripId, refresh]);
 
-  useEffect(() => {
-    if (!copied) return;
-
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target as Node | null;
-      if (copyButtonRef.current && target && copyButtonRef.current.contains(target)) {
-        return;
-      }
-      setCopied(false);
-    };
-
-    window.addEventListener("pointerdown", handlePointerDown, { capture: true });
-    return () => window.removeEventListener("pointerdown", handlePointerDown, { capture: true });
-  }, [copied]);
-
   if (!trip) {
     return (
       <div className="min-h-screen relative overflow-hidden text-white flex items-center justify-center">
@@ -87,29 +72,11 @@ export const Dashboard: React.FC = () => {
       <div className="absolute top-20 left-10 w-72 h-72 bg-gradient-to-br from-pink-300 to-rose-300 rounded-full blur-3xl opacity-30 pointer-events-none" />
       <div className="absolute bottom-32 right-20 w-96 h-96 bg-gradient-to-br from-cyan-300 to-blue-300 rounded-full blur-3xl opacity-20 pointer-events-none" />
       <div className="absolute top-1/2 left-1/3 w-80 h-80 bg-gradient-to-br from-purple-300 to-pink-300 rounded-full blur-3xl opacity-20 pointer-events-none" />
-      <div className="relative z-10 max-w-5xl mx-auto px-4 py-8 space-y-6">
-        {/* Top bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <h1 className="text-4xl font-bold">{trip.trip.name}</h1>
-          <div className="flex items-center gap-2 text-sm text-white/80">
-            <span className="font-semibold">Trip ID</span>
-            <span className="text-xs font-mono bg-white/10 border border-white/15 rounded-lg px-2 py-1 break-all">
-              {trip.trip.id}
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                navigator.clipboard.writeText(trip.trip.id);
-                setCopied(true);
-              }}
-              ref={copyButtonRef}
-              className="inline-flex items-center justify-center rounded-lg border border-white/15 bg-white/10 px-2 py-1 text-xs hover:shadow-lg transition"
-              title={copied ? "Copied" : "Copy Trip ID"}
-              aria-label={copied ? "Copied" : "Copy trip id"}
-            >
-              {copied ? "✓" : "⧉"}
-            </button>
-          </div>
+      <div className="relative z-10 max-w-7xl mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold mb-2">{trip.trip.name}</h1>
+          <p className="text-white/70">{trip.trip.origin}</p>
         </div>
 
         {/* Trip Brief */}

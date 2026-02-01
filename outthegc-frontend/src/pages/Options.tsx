@@ -31,11 +31,15 @@ export const Options: React.FC = () => {
 
   if (!trip || !options.length) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100">
-        <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="min-h-screen relative overflow-hidden text-white">
+        <div className="absolute inset-0 bg-gradient-to-br from-teal-400 via-sky-400 to-purple-500" />
+        <div className="absolute top-20 left-10 w-72 h-72 bg-gradient-to-br from-pink-300 to-rose-300 rounded-full blur-3xl opacity-30 pointer-events-none" />
+        <div className="absolute bottom-32 right-20 w-96 h-96 bg-gradient-to-br from-cyan-300 to-blue-300 rounded-full blur-3xl opacity-20 pointer-events-none" />
+        <div className="absolute top-1/2 left-1/3 w-80 h-80 bg-gradient-to-br from-purple-300 to-pink-300 rounded-full blur-3xl opacity-20 pointer-events-none" />
+        <div className="relative z-10 max-w-6xl mx-auto px-4 py-8">
           <div className="mb-8">
             <h1 className="text-4xl font-bold mb-2">Trip Options</h1>
-            <p className="text-slate-400">{trip?.trip.name}</p>
+            <p className="text-white/70">{trip?.trip.name}</p>
           </div>
           <Card>
             <p className="text-slate-400 text-center py-8">No options generated yet</p>
@@ -129,12 +133,16 @@ export const Options: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      <div className="max-w-6xl mx-auto px-4 py-8">
+    <div className="min-h-screen relative overflow-hidden text-white">
+      <div className="absolute inset-0 bg-gradient-to-br from-teal-400 via-sky-400 to-purple-500" />
+      <div className="absolute top-20 left-10 w-72 h-72 bg-gradient-to-br from-pink-300 to-rose-300 rounded-full blur-3xl opacity-30 pointer-events-none" />
+      <div className="absolute bottom-32 right-20 w-96 h-96 bg-gradient-to-br from-cyan-300 to-blue-300 rounded-full blur-3xl opacity-20 pointer-events-none" />
+      <div className="absolute top-1/2 left-1/3 w-80 h-80 bg-gradient-to-br from-purple-300 to-pink-300 rounded-full blur-3xl opacity-20 pointer-events-none" />
+      <div className="relative z-10 max-w-6xl mx-auto px-4 py-8">
         <div className="mb-8 flex justify-between items-start">
           <div>
             <h1 className="text-4xl font-bold mb-2">Trip Options</h1>
-            <p className="text-slate-400">{trip.trip.name}</p>
+            <p className="text-white/70">{trip.trip.name}</p>
           </div>
           <div className="flex gap-2">
             <Button
