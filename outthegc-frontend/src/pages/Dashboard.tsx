@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTrip } from "../context/TripContext";
+<<<<<<< Updated upstream
 import { setRequiredAttendees } from "../api/trips";
+=======
+import { updateBrief } from "../api/trips";
+>>>>>>> Stashed changes
 import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { Badge } from "../components/ui/Badge";
@@ -11,7 +15,12 @@ export const Dashboard: React.FC = () => {
   const { tripId: routeId } = useParams<{ tripId: string }>();
   const { tripId, trip, isOrganiser, refresh, setTripId, memberId } = useTrip();
   const navigate = useNavigate();
+<<<<<<< Updated upstream
   const [selectedRequired, setSelectedRequired] = useState<string[]>([]);
+=======
+  const [editing, setEditing] = useState(false);
+  const [briefText, setBriefText] = useState("");
+>>>>>>> Stashed changes
   const [loading, setLoading] = useState(false);
   const [isManageOpen, setIsManageOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -25,8 +34,13 @@ export const Dashboard: React.FC = () => {
 
   // Initialize form states
   useEffect(() => {
+<<<<<<< Updated upstream
     if (trip) {
       setSelectedRequired(trip.trip.required_member_ids || []);
+=======
+    if (trip && !editing) {
+      setBriefText(trip.trip.brief || "");
+>>>>>>> Stashed changes
     }
   }, [trip]);
 
@@ -41,20 +55,35 @@ export const Dashboard: React.FC = () => {
   const handleSaveRequired = async (requiredIds: string[]) => {
     setLoading(true);
     try {
+<<<<<<< Updated upstream
       await setRequiredAttendees(trip.trip.id, requiredIds);
       setSelectedRequired(requiredIds);
       refresh();
     } catch (err: any) {
       console.error("Failed to update required attendees:", err);
+=======
+      await updateBrief(trip.trip.id, briefText);
+      setEditing(false);
+      refresh();
+    } catch (err: any) {
+      console.error("Failed to update brief:", err);
+>>>>>>> Stashed changes
     } finally {
       setLoading(false);
     }
   };
+<<<<<<< Updated upstream
+=======
 
-  const toggleRequired = (memberId: string) => {
-    setSelectedRequired((prev) =>
-      prev.includes(memberId) ? prev.filter((id) => id !== memberId) : [...prev, memberId]
-    );
+  const activePolls = trip.polls.filter((poll) => poll.is_open);
+>>>>>>> Stashed changes
+
+  const copyTripId = async () => {
+    try {
+      await navigator.clipboard.writeText(trip.trip.id);
+    } catch {
+      // no-op
+    }
   };
 
   const handleRemoveRequired = async (memberId: string) => {
@@ -79,31 +108,43 @@ export const Dashboard: React.FC = () => {
   return (
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2">{trip.trip.name}</h1>
           <p className="text-slate-400">{trip.trip.origin}</p>
+=======
+    <div className="min-h-screen relative overflow-hidden text-white">
+      <div className="absolute inset-0 bg-gradient-to-br from-teal-400 via-sky-400 to-purple-500" />
+      <div className="absolute top-20 left-10 w-72 h-72 bg-gradient-to-br from-pink-300 to-rose-300 rounded-full blur-3xl opacity-30 pointer-events-none" />
+      <div className="absolute bottom-32 right-20 w-96 h-96 bg-gradient-to-br from-cyan-300 to-blue-300 rounded-full blur-3xl opacity-20 pointer-events-none" />
+      <div className="absolute top-1/2 left-1/3 w-80 h-80 bg-gradient-to-br from-purple-300 to-pink-300 rounded-full blur-3xl opacity-20 pointer-events-none" />
+      <div className="relative z-10 max-w-7xl mx-auto px-4 py-8 space-y-6">
+        {/* Top Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 className="text-4xl font-bold">{trip.trip.name}</h1>
+            <p className="text-white/70">{trip.trip.origin}</p>
+          </div>
+          <div className="flex items-center gap-2 bg-white/10 backdrop-blur-xl border border-white/15 rounded-2xl px-4 py-2 shadow-xl">
+            <div>
+              <p className="text-xs uppercase text-white/60">Trip ID</p>
+              <p className="text-xs font-mono break-all">{trip.trip.id}</p>
+            </div>
+            <Button variant="secondary" onClick={copyTripId} className="text-xs px-3 py-1">
+              Copy
+            </Button>
+          </div>
+>>>>>>> Stashed changes
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-6 mb-8">
-          {/* Trip Info */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Brief */}
-            <Card>
-              <div className="flex justify-between items-start mb-3">
-                <h2 className="text-lg font-semibold">Trip Brief</h2>
-                <Button
-                  variant="secondary"
-                  onClick={() => setEditing(!editing)}
-                  disabled={!isOrganiser}
-                  title={!isOrganiser ? "Organiser only" : ""}
-                  className="text-xs px-3 py-1"
-                >
-                  {editing ? "Cancel" : "Edit"}
-                </Button>
-              </div>
+        {/* Trip Brief */}
+        <Card className="transition-transform hover:-translate-y-1 hover:shadow-2xl">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div className="space-y-2">
+              <h2 className="text-lg font-semibold">Trip Brief</h2>
               {editing ? (
                 <div className="space-y-3">
                   <textarea
@@ -124,57 +165,39 @@ export const Dashboard: React.FC = () => {
               ) : (
                 <p className="text-slate-300">{trip.trip.brief || "No brief provided"}</p>
               )}
-            </Card>
+            </div>
+            <Button
+              variant="secondary"
+              onClick={() => setEditing(!editing)}
+              disabled={!isOrganiser}
+              title={!isOrganiser ? "Organiser only" : ""}
+              className="text-xs px-3 py-1 self-start sm:self-center"
+            >
+              {editing ? "Cancel" : "Edit Brief"}
+            </Button>
+          </div>
+        </Card>
 
-            {/* Members */}
-            <Card>
-              <h2 className="text-lg font-semibold mb-4">Members</h2>
-              <div className="space-y-2">
-                {trip.members.map((m) => (
-                  <div key={m.id} className="flex justify-between items-center p-3 bg-slate-800/50 rounded">
-                    <div>
-                      <p className="font-medium">{m.name}</p>
-                      <div className="flex gap-2 mt-1">
-                        <Badge>{m.role}</Badge>
-                        {m.has_submitted_constraints ? (
-                          <Badge>✓ Submitted</Badge>
-                        ) : (
-                          <Badge>Pending</Badge>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-
-            {/* Polls */}
-            <Card>
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold">Polls</h2>
-                <Button
-                  variant="primary"
-                  onClick={() => navigate(`/trip/${trip.trip.id}/polls`)}
-                  disabled={!isOrganiser}
-                  title={!isOrganiser ? "Organiser only" : ""}
-                  className="text-xs px-3 py-1"
-                >
-                  Create Poll
-                </Button>
-              </div>
-              {trip.polls.length === 0 ? (
-                <p className="text-slate-400">No polls yet</p>
-              ) : (
-                <div className="space-y-3">
-                  {trip.polls.map((poll) => (
-                    <div key={poll.id} className="p-3 bg-slate-800/50 rounded">
-                      <p className="font-medium">{poll.question}</p>
-                      <p className="text-xs text-slate-400 mt-1">
-                        {poll.votes.length} votes • {poll.is_open ? "Open" : "Closed"}
-                      </p>
-                    </div>
-                  ))}
+        {/* Members */}
+        <Card className="transition-transform hover:-translate-y-1 hover:shadow-2xl">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Members</h2>
+            <Button variant="secondary" className="text-xs px-3 py-1">
+              {isOrganiser ? "Manage members" : "Edit myself"}
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {trip.members.map((m) => (
+              <div
+                key={m.id}
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 bg-slate-800/50 rounded"
+              >
+                <p className="font-medium">{m.name}</p>
+                <div className="flex flex-wrap gap-2">
+                  <Badge>{m.role.charAt(0).toUpperCase() + m.role.slice(1)}</Badge>
+                  <Badge>{m.has_submitted_constraints ? "Submitted" : "Pending"}</Badge>
                 </div>
+<<<<<<< Updated upstream
               )}
             </Card>
 =======
@@ -206,9 +229,14 @@ export const Dashboard: React.FC = () => {
             >
               {copied ? "Copied" : "Copy"}
             </button>
+=======
+              </div>
+            ))}
+>>>>>>> Stashed changes
           </div>
-        </div>
+        </Card>
 
+<<<<<<< Updated upstream
         {/* Summary Card */}
         <Card className="mb-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -335,16 +363,55 @@ export const Dashboard: React.FC = () => {
 
         {/* Bottom Center CTA */}
         <div className="mt-10 flex justify-center">
+=======
+        {/* Polls */}
+        <Card className="transition-transform hover:-translate-y-1 hover:shadow-2xl">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Polls</h2>
+            <Button
+              variant="primary"
+              onClick={() => navigate(`/trip/${trip.trip.id}/polls`)}
+              disabled={!isOrganiser}
+              title={!isOrganiser ? "Organiser only" : ""}
+              className="text-xs px-3 py-1"
+            >
+              Create poll
+            </Button>
+          </div>
+          {activePolls.length === 0 ? (
+            <p className="text-slate-400">No polls yet</p>
+          ) : (
+            <div className="space-y-3">
+              {activePolls.map((poll) => (
+                <div key={poll.id} className="p-3 bg-slate-800/50 rounded">
+                  <p className="font-medium">{poll.question}</p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    {poll.votes.length} votes • Open
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* Bottom Action */}
+        <div className="flex justify-center">
+>>>>>>> Stashed changes
           <Button
             variant="primary"
             onClick={() => navigate(`/trip/${trip.trip.id}/options`)}
             disabled={!isOrganiser}
             title={!isOrganiser ? "Organiser only" : ""}
+<<<<<<< Updated upstream
             className="w-full sm:w-auto px-8 py-3"
+=======
+            className="w-full sm:w-auto px-6 py-3 shadow-lg hover:shadow-xl"
+>>>>>>> Stashed changes
           >
             Generate trip
           </Button>
         </div>
+<<<<<<< Updated upstream
       </div>
 
       {isManageOpen && (
@@ -423,6 +490,8 @@ const ManageMembersModal: React.FC<{
             </Button>
           </div>
         </Card>
+=======
+>>>>>>> Stashed changes
       </div>
     </div>
   );
