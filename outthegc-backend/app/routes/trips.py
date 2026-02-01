@@ -90,7 +90,8 @@ def get_trip(trip_id: str) -> Dict[str, Any]:
                 votes_list.append({
                     "member_id": vote.member_id,
                     "member_name": member_name,
-                    "option_id": vote.option_id
+                    "option_id": vote.option_id,
+                    "value": vote.value
                 })
             
             polls_summary.append({
@@ -99,6 +100,7 @@ def get_trip(trip_id: str) -> Dict[str, Any]:
                 "type": poll.type,
                 "is_open": poll.is_open,
                 "options": [{"id": opt.id, "label": opt.label} for opt in poll.options],
+                "slider": poll.slider.dict() if poll.slider else None,
                 "votes": votes_list
             })
         

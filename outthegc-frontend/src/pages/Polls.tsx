@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTrip } from "../context/TripContext";
 import { vote as submitVote, createPoll } from "../api/polls";
@@ -17,13 +17,32 @@ export const Polls: React.FC = () => {
   const [userVotes, setUserVotes] = useState<Record<string, string>>({});
   const [multiVotes, setMultiVotes] = useState<Record<string, Set<string>>>({});
   const [singleVoteSelection, setSingleVoteSelection] = useState<Record<string, string>>({});
+  const [sliderValues, setSliderValues] = useState<Record<string, number>>({});
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [pollForm, setPollForm] = useState({
     question: "",
-    type: "single" as "single" | "multi",
+    type: "single" as "single" | "multi" | "slider",
     options: ["", ""],
+    sliderTitle: "",
+    leftLabel: "",
+    rightLabel: "",
   });
   const [createLoading, setCreateLoading] = useState(false);
+
+  useEffect(() => {
+    if (!trip) return;
+    const defaults: Record<string, number> = {};
+    trip.polls.forEach((poll) => {
+      if (poll.type !== "slider") return;
+      if (sliderValues[poll.id] !== undefined) return;
+      const min = poll.slider?.min ?? 0;
+      const max = poll.slider?.max ?? 100;
+      defaults[poll.id] = Math.round((min + max) / 2);
+    });
+    if (Object.keys(defaults).length > 0) {
+      setSliderValues((prev) => ({ ...prev, ...defaults }));
+    }
+  }, [trip, sliderValues]);
 
   if (!trip) {
     return (
@@ -47,6 +66,27 @@ export const Polls: React.FC = () => {
       await submitVote(tripId, pollId, { member_id: memberId, option_id: optionId });
       setUserVotes({ ...userVotes, [pollId]: optionId });
       setSingleVoteSelection({ ...singleVoteSelection, [pollId]: "" });
+      refresh();
+    } catch (err: any) {
+      setError(err.response?.data?.detail || "Failed to vote");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleSliderVote = async (pollId: string) => {
+    if (!memberId || !tripId) return;
+    const value = sliderValues[pollId];
+    if (value === undefined) {
+      setError("Please select a value");
+      return;
+    }
+
+    setLoading(pollId);
+    setError(null);
+
+    try {
+      await submitVote(tripId, pollId, { member_id: memberId, value });
       refresh();
     } catch (err: any) {
       setError(err.response?.data?.detail || "Failed to vote");
@@ -117,25 +157,55 @@ export const Polls: React.FC = () => {
       return;
     }
     
+    const isSlider = pollForm.type === "slider";
     const nonEmptyOptions = pollForm.options.filter(opt => opt.trim());
-    if (nonEmptyOptions.length < 2) {
+    if (!isSlider && nonEmptyOptions.length < 2) {
       setError("At least 2 options are required");
       return;
+    }
+    if (isSlider) {
+      if (!pollForm.leftLabel.trim() || !pollForm.rightLabel.trim()) {
+        setError("Left and right labels are required");
+        return;
+      }
     }
 
     setCreateLoading(true);
     setError(null);
 
     try {
-      await createPoll(trip.trip.id, {
-        created_by_member_id: memberId,
-        type: pollForm.type,
-        question: pollForm.question,
-        options: nonEmptyOptions.map(label => ({ label })),
-      });
+      if (isSlider) {
+        await createPoll(trip.trip.id, {
+          created_by_member_id: memberId,
+          type: "slider",
+          question: pollForm.question,
+          slider_title: pollForm.sliderTitle.trim() || undefined,
+          left_label: pollForm.leftLabel.trim(),
+          right_label: pollForm.rightLabel.trim(),
+          slider: {
+            title: pollForm.sliderTitle.trim() || undefined,
+            left_label: pollForm.leftLabel.trim(),
+            right_label: pollForm.rightLabel.trim(),
+          },
+        });
+      } else {
+        await createPoll(trip.trip.id, {
+          created_by_member_id: memberId,
+          type: pollForm.type,
+          question: pollForm.question,
+          options: nonEmptyOptions.map(label => ({ label })),
+        });
+      }
       
       // Reset form
-      setPollForm({ question: "", type: "single", options: ["", ""] });
+      setPollForm({
+        question: "",
+        type: "single",
+        options: ["", ""],
+        sliderTitle: "",
+        leftLabel: "",
+        rightLabel: "",
+      });
       setShowCreateForm(false);
       
       // Wait for refresh to complete before proceeding
@@ -178,6 +248,16 @@ export const Polls: React.FC = () => {
       .flatMap((p) => p.votes)
       .filter((v) => v.option_id === optionId)
       .map((v) => v.member_name);
+  };
+
+  const getSliderStats = (pollId: string) => {
+    const poll = trip.polls.find((p) => p.id === pollId);
+    if (!poll) return { average: 0, votes: [] as Array<{ member_name: string; value: number }> };
+    const votes = poll.votes
+      .filter((v) => typeof v.value === "number")
+      .map((v) => ({ member_name: v.member_name, value: v.value as number }));
+    const average = votes.length > 0 ? votes.reduce((sum, v) => sum + v.value, 0) / votes.length : 0;
+    return { average, votes };
   };
 
   return (
@@ -257,41 +337,85 @@ export const Polls: React.FC = () => {
                     />
                     <span>Multiple Choice</span>
                   </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="pollType"
+                      value="slider"
+                      checked={pollForm.type === "slider"}
+                      onChange={() => setPollForm({ ...pollForm, type: "slider" })}
+                      className="w-4 h-4"
+                    />
+                    <span>Preference Slider</span>
+                  </label>
                 </div>
               </div>
 
-              {/* Options */}
-              <div>
-                <label className="block text-sm font-medium mb-2">Options</label>
-                <div className="space-y-2">
-                  {pollForm.options.map((option, index) => (
-                    <div key={index} className="flex gap-2">
+              {pollForm.type === "slider" ? (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Slider title (optional)</label>
+                    <Input
+                      value={pollForm.sliderTitle}
+                      onChange={(e) => setPollForm({ ...pollForm, sliderTitle: e.target.value })}
+                      placeholder="e.g. Overall vibe"
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Left label</label>
                       <Input
-                        value={option}
-                        onChange={(e) => updateOption(index, e.target.value)}
-                        placeholder={`Option ${index + 1}`}
-                        className="flex-1"
+                        value={pollForm.leftLabel}
+                        onChange={(e) => setPollForm({ ...pollForm, leftLabel: e.target.value })}
+                        placeholder="e.g. Relaxed"
+                        className="w-full"
                       />
-                      {pollForm.options.length > 2 && (
-                        <Button
-                          variant="secondary"
-                          onClick={() => removeOption(index)}
-                          className="px-3 py-2 text-sm"
-                        >
-                          Remove
-                        </Button>
-                      )}
                     </div>
-                  ))}
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Right label</label>
+                      <Input
+                        value={pollForm.rightLabel}
+                        onChange={(e) => setPollForm({ ...pollForm, rightLabel: e.target.value })}
+                        placeholder="e.g. Adventurous"
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
                 </div>
-                <Button
-                  variant="secondary"
-                  onClick={addOption}
-                  className="mt-3 text-sm w-full"
-                >
-                  + Add Option
-                </Button>
-              </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium mb-2">Options</label>
+                  <div className="space-y-2">
+                    {pollForm.options.map((option, index) => (
+                      <div key={index} className="flex gap-2">
+                        <Input
+                          value={option}
+                          onChange={(e) => updateOption(index, e.target.value)}
+                          placeholder={`Option ${index + 1}`}
+                          className="flex-1"
+                        />
+                        {pollForm.options.length > 2 && (
+                          <Button
+                            variant="secondary"
+                            onClick={() => removeOption(index)}
+                            className="px-3 py-2 text-sm"
+                          >
+                            Remove
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <Button
+                    variant="secondary"
+                    onClick={addOption}
+                    className="mt-3 text-sm w-full"
+                  >
+                    + Add Option
+                  </Button>
+                </div>
+              )}
 
               {/* Submit */}
               <div className="flex gap-3 pt-2">
@@ -334,94 +458,176 @@ export const Polls: React.FC = () => {
                     <div>
                       <h2 className="text-xl font-semibold">{poll.question}</h2>
                       <div className="flex gap-2 mt-2">
-                        <Badge>{poll.type === "single" ? "Single Choice" : "Multiple Choice"}</Badge>
+                        <Badge>
+                          {poll.type === "single"
+                            ? "Single Choice"
+                            : poll.type === "multi"
+                              ? "Multiple Choice"
+                              : "Preference Slider"}
+                        </Badge>
                       </div>
                     </div>
                   </div>
 
-                  {/* Options */}
-                  <div className="space-y-4">
-                    {poll.options.map((option) => {
-                      const voteCount = getVoteCount(option.id);
-                      const percentage = totalVotes > 0 ? (voteCount / totalVotes) * 100 : 0;
-                      const voters = getVotersForOption(option.id);
-                      const isUserVote = userVotes[poll.id] === option.id;
-                      const isUserMultiVote = selectedOptions.has(option.id);
-
-                      return (
-                        <div key={option.id} className="border border-slate-800 rounded-lg p-4">
-                          {/* Option Label */}
-                          <div className="flex justify-between items-center mb-3">
-                            <div className="flex items-center gap-2">
-                              {poll.is_open && !userHasVoted && poll.type === "multi" && (
-                                <input
-                                  type="checkbox"
-                                  checked={isUserMultiVote}
-                                  onChange={() => handleMultiVoteToggle(poll.id, option.id)}
-                                  className="w-4 h-4"
-                                />
-                              )}
-                              {poll.is_open && !userHasVoted && poll.type === "single" && (
-                                <input
-                                  type="radio"
-                                  name={`poll-${poll.id}`}
-                                  checked={singleVoteSelection[poll.id] === option.id}
-                                  onChange={() => handleSingleVoteSelection(poll.id, option.id)}
-                                  className="w-4 h-4"
-                                />
-                              )}
-                              {userHasVoted && isUserVote && poll.type === "single" && (
-                                <input
-                                  type="radio"
-                                  name={`poll-${poll.id}`}
-                                  checked={true}
-                                  disabled
-                                  className="w-4 h-4"
-                                />
-                              )}
-                              <span className="font-medium">{option.label}</span>
-                            </div>
-                            <span className="text-xs text-slate-400">
-                              {voteCount} vote{voteCount !== 1 ? "s" : ""}
-                            </span>
-                          </div>
-
-                          {/* Vote Bar */}
-                          <div className="w-full bg-slate-800 rounded h-2 mb-3 overflow-hidden">
-                            <div
-                              className="h-full transition-all bg-green-500"
-                              style={{ width: `${percentage}%` }}
-                            />
-                          </div>
-
-                          {/* Voters List */}
-                          {voters.length > 0 && (
-                            <div className="mb-3">
-                              <p className="text-xs text-slate-400 mb-1">Voted:</p>
-                              <div className="flex flex-wrap gap-1">
-                                {voters.map((name, idx) => (
-                                  <span
-                                    key={idx}
-                                    className="inline-block text-xs bg-slate-800 px-2 py-1 rounded"
-                                  >
-                                    {name}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {userHasVoted && isUserVote && poll.type === "single" && (
-                            <div className="text-xs text-indigo-400 font-medium">✓ Your vote</div>
-                          )}
-
-                          {userHasVoted && isUserMultiVote && poll.type === "multi" && (
-                            <div className="text-xs text-indigo-400 font-medium">✓ Selected</div>
-                          )}
+                  {poll.type === "slider" ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between text-sm text-slate-300">
+                        <span>{poll.slider?.left_label}</span>
+                        <span>{poll.slider?.right_label}</span>
+                      </div>
+                      {poll.slider?.title && (
+                        <p className="text-sm text-slate-200 font-medium">{poll.slider.title}</p>
+                      )}
+                      <div className="space-y-3">
+                        <input
+                          type="range"
+                          min={poll.slider?.min ?? 0}
+                          max={poll.slider?.max ?? 100}
+                          step={poll.slider?.step ?? 1}
+                          value={sliderValues[poll.id] ?? 50}
+                          onChange={(e) =>
+                            setSliderValues({
+                              ...sliderValues,
+                              [poll.id]: Number(e.target.value),
+                            })
+                          }
+                          disabled={!poll.is_open || userHasVoted}
+                          className="w-full"
+                        />
+                        <div className="flex items-center justify-between text-xs text-slate-400">
+                          <span>Value: {sliderValues[poll.id] ?? 50}</span>
+                          <span>
+                            {(() => {
+                              const min = poll.slider?.min ?? 0;
+                              const max = poll.slider?.max ?? 100;
+                              const midpoint = (min + max) / 2;
+                              const value = sliderValues[poll.id] ?? midpoint;
+                              return value < midpoint
+                                ? "Leaning left"
+                                : value > midpoint
+                                  ? "Leaning right"
+                                  : "Neutral";
+                            })()}
+                          </span>
                         </div>
-                      );
-                    })}
-                  </div>
+                      </div>
+
+                      {(() => {
+                        const { average, votes } = getSliderStats(poll.id);
+                        const min = poll.slider?.min ?? 0;
+                        const max = poll.slider?.max ?? 100;
+                        const percent = max > min ? ((average - min) / (max - min)) * 100 : 0;
+                        return (
+                          <div className="space-y-3">
+                            <div className="w-full bg-slate-800 rounded h-2 relative">
+                              <div
+                                className="absolute top-1/2 -translate-y-1/2 h-4 w-1 bg-indigo-400"
+                                style={{ left: `${Math.min(100, Math.max(0, percent))}%` }}
+                              />
+                            </div>
+                            {votes.length > 0 && (
+                              <div className="space-y-1">
+                                <p className="text-xs text-slate-400">Votes:</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {votes.map((v, idx) => (
+                                    <span
+                                      key={`${v.member_name}-${idx}`}
+                                      className="inline-flex items-center gap-1 text-xs bg-slate-800 px-2 py-1 rounded"
+                                    >
+                                      {v.member_name}: {v.value}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {poll.options.map((option) => {
+                        const voteCount = getVoteCount(option.id);
+                        const percentage = totalVotes > 0 ? (voteCount / totalVotes) * 100 : 0;
+                        const voters = getVotersForOption(option.id);
+                        const isUserVote = userVotes[poll.id] === option.id;
+                        const isUserMultiVote = selectedOptions.has(option.id);
+
+                        return (
+                          <div key={option.id} className="border border-slate-800 rounded-lg p-4">
+                            {/* Option Label */}
+                            <div className="flex justify-between items-center mb-3">
+                              <div className="flex items-center gap-2">
+                                {poll.is_open && !userHasVoted && poll.type === "multi" && (
+                                  <input
+                                    type="checkbox"
+                                    checked={isUserMultiVote}
+                                    onChange={() => handleMultiVoteToggle(poll.id, option.id)}
+                                    className="w-4 h-4"
+                                  />
+                                )}
+                                {poll.is_open && !userHasVoted && poll.type === "single" && (
+                                  <input
+                                    type="radio"
+                                    name={`poll-${poll.id}`}
+                                    checked={singleVoteSelection[poll.id] === option.id}
+                                    onChange={() => handleSingleVoteSelection(poll.id, option.id)}
+                                    className="w-4 h-4"
+                                  />
+                                )}
+                                {userHasVoted && isUserVote && poll.type === "single" && (
+                                  <input
+                                    type="radio"
+                                    name={`poll-${poll.id}`}
+                                    checked={true}
+                                    disabled
+                                    className="w-4 h-4"
+                                  />
+                                )}
+                                <span className="font-medium">{option.label}</span>
+                              </div>
+                              <span className="text-xs text-slate-400">
+                                {voteCount} vote{voteCount !== 1 ? "s" : ""}
+                              </span>
+                            </div>
+
+                            {/* Vote Bar */}
+                            <div className="w-full bg-slate-800 rounded h-2 mb-3 overflow-hidden">
+                              <div
+                                className="h-full transition-all bg-green-500"
+                                style={{ width: `${percentage}%` }}
+                              />
+                            </div>
+
+                            {/* Voters List */}
+                            {voters.length > 0 && (
+                              <div className="mb-3">
+                                <p className="text-xs text-slate-400 mb-1">Voted:</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {voters.map((name, idx) => (
+                                    <span
+                                      key={idx}
+                                      className="inline-block text-xs bg-slate-800 px-2 py-1 rounded"
+                                    >
+                                      {name}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {userHasVoted && isUserVote && poll.type === "single" && (
+                              <div className="text-xs text-indigo-400 font-medium">✓ Your vote</div>
+                            )}
+
+                            {userHasVoted && isUserMultiVote && poll.type === "multi" && (
+                              <div className="text-xs text-indigo-400 font-medium">✓ Selected</div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
 
                   {/* Submit Button for Single Choice */}
                   {poll.is_open && !userHasVoted && poll.type === "single" && (
@@ -447,6 +653,19 @@ export const Polls: React.FC = () => {
                         className="w-full"
                       >
                         {loading === poll.id ? "Submitting..." : `Submit Votes (${selectedOptions.size} selected)`}
+                      </Button>
+                    </div>
+                  )}
+
+                  {poll.is_open && !userHasVoted && poll.type === "slider" && (
+                    <div className="mt-4 pt-4 border-t border-slate-800">
+                      <Button
+                        variant="primary"
+                        onClick={() => handleSliderVote(poll.id)}
+                        disabled={loading === poll.id}
+                        className="w-full"
+                      >
+                        {loading === poll.id ? "Submitting..." : "Submit Vote"}
                       </Button>
                     </div>
                   )}
