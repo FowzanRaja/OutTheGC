@@ -335,7 +335,6 @@ export const Polls: React.FC = () => {
                       <h2 className="text-xl font-semibold">{poll.question}</h2>
                       <div className="flex gap-2 mt-2">
                         <Badge>{poll.type === "single" ? "Single Choice" : "Multiple Choice"}</Badge>
-                        {poll.is_open ? <Badge>Open</Badge> : <Badge>Closed</Badge>}
                       </div>
                     </div>
                   </div>
