@@ -19,13 +19,16 @@ export const Polls: React.FC = () => {
   const [multiVotes, setMultiVotes] = useState<Record<string, Set<string>>>({});
   const [singleVoteSelection, setSingleVoteSelection] = useState<Record<string, string>>({});
   const [sliderValues, setSliderValues] = useState<Record<string, number>>({});
+  const [dateSelections, setDateSelections] = useState<Record<string, { start: string; end: string }>>({});
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [pollForm, setPollForm] = useState({
     question: "",
-    type: "single" as "single" | "multi" | "slider",
+    type: "single" as "single" | "multi" | "slider" | "dates",
     options: ["", ""],
     leftLabel: "",
     rightLabel: "",
+    dateWindowStart: "",
+    dateWindowEnd: "",
   });
   const [createLoading, setCreateLoading] = useState(false);
 
@@ -87,6 +90,35 @@ export const Polls: React.FC = () => {
 
     try {
       await submitVote(tripId, pollId, { member_id: memberId, value });
+      refresh();
+    } catch (err: any) {
+      setError(err.response?.data?.detail || "Failed to vote");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleDateVote = async (pollId: string) => {
+    if (!memberId || !tripId) return;
+    const selection = dateSelections[pollId];
+    if (!selection?.start || !selection?.end) {
+      setError("Please select a start and end date");
+      return;
+    }
+    if (selection.start > selection.end) {
+      setError("Start date must be before or equal to end date");
+      return;
+    }
+
+    setLoading(pollId);
+    setError(null);
+
+    try {
+      await submitVote(tripId, pollId, {
+        member_id: memberId,
+        start_date: selection.start,
+        end_date: selection.end,
+      });
       refresh();
     } catch (err: any) {
       setError(err.response?.data?.detail || "Failed to vote");
@@ -158,14 +190,25 @@ export const Polls: React.FC = () => {
     }
     
     const isSlider = pollForm.type === "slider";
+    const isDates = pollForm.type === "dates";
     const nonEmptyOptions = pollForm.options.filter(opt => opt.trim());
-    if (!isSlider && nonEmptyOptions.length < 2) {
+    if (!isSlider && !isDates && nonEmptyOptions.length < 2) {
       setError("At least 2 options are required");
       return;
     }
     if (isSlider && (!pollForm.leftLabel.trim() || !pollForm.rightLabel.trim())) {
       setError("Left and right labels are required");
       return;
+    }
+    if (isDates) {
+      if (!pollForm.dateWindowStart || !pollForm.dateWindowEnd) {
+        setError("Date window start and end are required");
+        return;
+      }
+      if (pollForm.dateWindowStart > pollForm.dateWindowEnd) {
+        setError("Date window start must be before or equal to end");
+        return;
+      }
     }
 
     setCreateLoading(true);
@@ -182,6 +225,16 @@ export const Polls: React.FC = () => {
             right_label: pollForm.rightLabel.trim(),
           },
         });
+      } else if (isDates) {
+        await createPoll(trip.trip.id, {
+          created_by_member_id: memberId,
+          type: "dates",
+          question: pollForm.question,
+          date_window: {
+            start: pollForm.dateWindowStart,
+            end: pollForm.dateWindowEnd,
+          },
+        });
       } else {
         await createPoll(trip.trip.id, {
           created_by_member_id: memberId,
@@ -192,7 +245,15 @@ export const Polls: React.FC = () => {
       }
       
       // Reset form
-      setPollForm({ question: "", type: "single", options: ["", ""], leftLabel: "", rightLabel: "" });
+      setPollForm({
+        question: "",
+        type: "single",
+        options: ["", ""],
+        leftLabel: "",
+        rightLabel: "",
+        dateWindowStart: "",
+        dateWindowEnd: "",
+      });
       setShowCreateForm(false);
       
       // Wait for refresh to complete before proceeding
@@ -358,6 +419,17 @@ export const Polls: React.FC = () => {
                     />
                     <span>Preference Slider</span>
                   </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="pollType"
+                      value="dates"
+                      checked={pollForm.type === "dates"}
+                      onChange={() => setPollForm({ ...pollForm, type: "dates" })}
+                      className="w-4 h-4"
+                    />
+                    <span>Date Availability</span>
+                  </label>
                 </div>
               </div>
 
@@ -378,6 +450,27 @@ export const Polls: React.FC = () => {
                       value={pollForm.rightLabel}
                       onChange={(e) => setPollForm({ ...pollForm, rightLabel: e.target.value })}
                       placeholder="e.g. Adventurous"
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+              ) : pollForm.type === "dates" ? (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Window start</label>
+                    <Input
+                      type="date"
+                      value={pollForm.dateWindowStart}
+                      onChange={(e) => setPollForm({ ...pollForm, dateWindowStart: e.target.value })}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Window end</label>
+                    <Input
+                      type="date"
+                      value={pollForm.dateWindowEnd}
+                      onChange={(e) => setPollForm({ ...pollForm, dateWindowEnd: e.target.value })}
                       className="w-full"
                     />
                   </div>
@@ -463,6 +556,88 @@ export const Polls: React.FC = () => {
                       loading={loading === poll.id}
                       hasVoted={userHasVoted}
                     />
+                  ) : poll.type === "dates" ? (
+                    <div className="space-y-4">
+                      <div>
+                        <h2 className="text-xl font-semibold">{poll.question}</h2>
+                        {poll.date_window && (
+                          <p className="text-sm text-slate-300 mt-1">
+                            Window: {poll.date_window.start} → {poll.date_window.end}
+                          </p>
+                        )}
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div>
+                          <label className="block text-sm font-medium mb-2">Start date</label>
+                          <Input
+                            type="date"
+                            value={dateSelections[poll.id]?.start || ""}
+                            min={poll.date_window?.start}
+                            max={poll.date_window?.end}
+                            onChange={(e) =>
+                              setDateSelections({
+                                ...dateSelections,
+                                [poll.id]: {
+                                  start: e.target.value,
+                                  end: dateSelections[poll.id]?.end || "",
+                                },
+                              })
+                            }
+                            className="w-full"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-2">End date</label>
+                          <Input
+                            type="date"
+                            value={dateSelections[poll.id]?.end || ""}
+                            min={poll.date_window?.start}
+                            max={poll.date_window?.end}
+                            onChange={(e) =>
+                              setDateSelections({
+                                ...dateSelections,
+                                [poll.id]: {
+                                  start: dateSelections[poll.id]?.start || "",
+                                  end: e.target.value,
+                                },
+                              })
+                            }
+                            className="w-full"
+                          />
+                        </div>
+                      </div>
+                      {poll.votes.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-xs text-slate-400">Responses:</p>
+                          <div className="flex flex-wrap gap-2">
+                            {poll.votes.map((vote, idx) => (
+                              <span
+                                key={`${vote.member_id}-${idx}`}
+                                className="inline-flex items-center gap-1 text-xs bg-black/35 border border-white/10 text-white px-2 py-1 rounded-full"
+                              >
+                                {vote.member_name}: {vote.start_date} → {vote.end_date}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {poll.is_open && !userHasVoted && (
+                        <div className="mt-4 pt-4 border-t border-slate-800">
+                          <Button
+                            variant="primary"
+                            onClick={() => handleDateVote(poll.id)}
+                            disabled={
+                              loading === poll.id ||
+                              !dateSelections[poll.id]?.start ||
+                              !dateSelections[poll.id]?.end
+                            }
+                            className="w-full"
+                          >
+                            {loading === poll.id ? "Submitting..." : "Submit Vote"}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <>
                       {/* Poll Header */}

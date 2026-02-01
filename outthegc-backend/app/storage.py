@@ -3,7 +3,7 @@ from datetime import datetime
 from uuid import uuid4
 from app.models import (
     Trip, Member, Constraints, Availability, Poll, Vote, PlanVersion, Option, Feedback,
-    PollOption, SliderConfig
+    PollOption, SliderConfig, DateWindow
 )
 
 # ============================================================================
@@ -208,7 +208,8 @@ def create_poll(
     poll_type: str,
     question: str,
     options: List[str],
-    slider: Optional[SliderConfig] = None
+    slider: Optional[SliderConfig] = None,
+    date_window: Optional[DateWindow] = None
 ) -> Poll:
     """Create new poll for trip."""
     trip = get_trip_or_404(trip_id)
@@ -223,6 +224,7 @@ def create_poll(
         question=question,
         options=poll_options,
         slider=slider,
+        date_window=date_window,
         is_open=True,
         created_at=datetime.utcnow()
     )
@@ -234,7 +236,9 @@ def vote(
     poll_id: str,
     member_id: str,
     option_id: Optional[str] = None,
-    value: Optional[int] = None
+    value: Optional[int] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None
 ) -> Vote:
     """Record a vote. Rejects if poll closed or option invalid.
     For single choice: replaces previous vote
@@ -254,6 +258,11 @@ def vote(
             raise ValueError("Slider configuration not found for poll")
         if value < poll.slider.min or value > poll.slider.max:
             raise ValueError("Slider value out of range")
+    elif poll.type == "dates":
+        if not start_date or not end_date:
+            raise ValueError("Date vote requires start_date and end_date")
+        if poll.date_window is None:
+            raise ValueError("Date window not found for poll")
     else:
         if option_id is None:
             raise ValueError("Option id is required for this poll type")
@@ -276,6 +285,21 @@ def vote(
             del votes[key]
         vote_key = (poll_id, member_id, None)
         vote = Vote(poll_id=poll_id, member_id=member_id, option_id=None, value=value)
+        votes[vote_key] = vote
+        return vote
+
+    if poll.type == "dates":
+        keys_to_remove = [key for key in votes if key[0] == poll_id and key[1] == member_id]
+        for key in keys_to_remove:
+            del votes[key]
+        vote_key = (poll_id, member_id, None)
+        vote = Vote(
+            poll_id=poll_id,
+            member_id=member_id,
+            option_id=None,
+            start_date=start_date,
+            end_date=end_date
+        )
         votes[vote_key] = vote
         return vote
 

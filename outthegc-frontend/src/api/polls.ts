@@ -3,7 +3,7 @@ import type { Poll } from "../types/api";
 
 export async function createPoll(trip_id: string, body: {
   created_by_member_id: string;
-  type: "single" | "multi" | "slider";
+  type: "single" | "multi" | "slider" | "dates";
   question: string;
   options?: Array<{ label: string }>;
   slider_title?: string;
@@ -17,6 +17,10 @@ export async function createPoll(trip_id: string, body: {
     max?: number;
     step?: number;
   };
+  date_window?: {
+    start: string;
+    end: string;
+  };
 }) {
   const { data } = await api.post(`/trips/${trip_id}/polls`, body);
   return data as Poll;
@@ -25,7 +29,7 @@ export async function createPoll(trip_id: string, body: {
 export async function vote(
   trip_id: string,
   poll_id: string,
-  body: { member_id: string; option_id?: string; value?: number }
+  body: { member_id: string; option_id?: string; value?: number; start_date?: string; end_date?: string }
 ) {
   const { data } = await api.post(`/trips/${trip_id}/polls/${poll_id}/vote`, body);
   return data;
