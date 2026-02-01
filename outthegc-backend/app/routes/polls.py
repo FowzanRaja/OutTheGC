@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from typing import Dict, List, Any
+from datetime import datetime
 from app.models import CreatePollRequest, VoteRequest, ClosePollRequest
 from app import storage
 
@@ -20,7 +21,7 @@ def build_poll_response(poll_id: str) -> Dict[str, Any]:
     for opt in poll.options:
         votes_for_option = [v for v in poll_votes if v.option_id == opt.id]
         votes_by_option[opt.id] = len(votes_for_option)
-        
+
         # Add vote details (member_id and member name if available)
         for vote in votes_for_option:
             try:
@@ -32,10 +33,12 @@ def build_poll_response(poll_id: str) -> Dict[str, Any]:
                 "member_id": vote.member_id,
                 "member_name": member_name,
                 "option_id": vote.option_id,
-                "value": vote.value
+                "value": vote.value,
+                "start_date": vote.start_date,
+                "end_date": vote.end_date
             })
 
-    if poll.type == "slider":
+    if poll.type in ["slider", "dates"]:
         for vote in poll_votes:
             try:
                 member = storage.get_member_or_404(vote.member_id)
@@ -46,7 +49,9 @@ def build_poll_response(poll_id: str) -> Dict[str, Any]:
                 "member_id": vote.member_id,
                 "member_name": member_name,
                 "option_id": None,
-                "value": vote.value
+                "value": vote.value,
+                "start_date": vote.start_date,
+                "end_date": vote.end_date
             })
     
     return {
@@ -63,6 +68,7 @@ def build_poll_response(poll_id: str) -> Dict[str, Any]:
             for opt in poll.options
         ],
         "slider": poll.slider.dict() if poll.slider else None,
+        "date_window": poll.date_window.dict() if poll.date_window else None,
         "is_open": poll.is_open,
         "created_at": poll.created_at.isoformat(),
         "total_votes": len(poll_votes),
@@ -73,6 +79,13 @@ def build_poll_response(poll_id: str) -> Dict[str, Any]:
 @router.post("/{trip_id}/polls")
 def create_poll(trip_id: str, req: CreatePollRequest) -> Dict[str, Any]:
     """Create new poll. Organiser only."""
+    # Example (dates poll):
+    # {
+    #   "created_by_member_id": "...",
+    #   "type": "dates",
+    #   "question": "When can you travel?",
+    #   "date_window": {"start": "2026-02-01", "end": "2026-02-28"}
+    # }
     try:
         trip = storage.get_trip_or_404(trip_id)
         member = storage.assert_member_in_trip(req.created_by_member_id, trip_id)
@@ -81,7 +94,7 @@ def create_poll(trip_id: str, req: CreatePollRequest) -> Dict[str, Any]:
         if not storage.is_organiser(req.created_by_member_id, trip_id):
             raise HTTPException(status_code=403, detail="Only organiser can create polls")
         
-        if req.type not in ["single", "multi", "slider"]:
+        if req.type not in ["single", "multi", "slider", "dates"]:
             raise HTTPException(status_code=400, detail="Invalid poll type")
 
         if req.type in ["single", "multi"]:
@@ -94,10 +107,21 @@ def create_poll(trip_id: str, req: CreatePollRequest) -> Dict[str, Any]:
                 options_list.append(opt_input.label)
 
             poll = storage.create_poll(trip_id, req.type, req.question, options_list)
-        else:
+        elif req.type == "slider":
             if not req.slider or not req.slider.left_label or not req.slider.right_label:
                 raise HTTPException(status_code=400, detail="Slider poll requires left_label and right_label")
             poll = storage.create_poll(trip_id, req.type, req.question, [], req.slider)
+        else:
+            if not req.date_window or not req.date_window.start or not req.date_window.end:
+                raise HTTPException(status_code=400, detail="Date poll requires date_window start and end")
+            try:
+                start = datetime.strptime(req.date_window.start, "%Y-%m-%d").date()
+                end = datetime.strptime(req.date_window.end, "%Y-%m-%d").date()
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+            if start > end:
+                raise HTTPException(status_code=400, detail="date_window.start must be before or equal to date_window.end")
+            poll = storage.create_poll(trip_id, req.type, req.question, [], None, req.date_window)
         
         return build_poll_response(poll.id)
     except HTTPException:
@@ -116,6 +140,8 @@ def create_poll(trip_id: str, req: CreatePollRequest) -> Dict[str, Any]:
 @router.post("/{trip_id}/polls/{poll_id}/vote")
 def vote_on_poll(trip_id: str, poll_id: str, req: VoteRequest) -> Dict[str, Any]:
     """Vote on a poll."""
+    # Example (dates vote):
+    # {"member_id": "...", "start_date": "2026-02-10", "end_date": "2026-02-14"}
     try:
         trip = storage.get_trip_or_404(trip_id)
         poll = storage.get_poll_or_404(poll_id)
@@ -138,7 +164,7 @@ def vote_on_poll(trip_id: str, poll_id: str, req: VoteRequest) -> Dict[str, Any]
                 raise HTTPException(status_code=400, detail="Invalid poll option")
             # Record vote (upserts if member already voted)
             storage.vote(poll_id, req.member_id, req.option_id)
-        else:
+        elif poll.type == "slider":
             if req.value is None:
                 raise HTTPException(status_code=400, detail="Slider value is required")
             if poll.slider is None:
@@ -146,6 +172,23 @@ def vote_on_poll(trip_id: str, poll_id: str, req: VoteRequest) -> Dict[str, Any]
             if req.value < poll.slider.min or req.value > poll.slider.max:
                 raise HTTPException(status_code=400, detail="Slider value out of range")
             storage.vote(poll_id, req.member_id, None, req.value)
+        else:
+            if not req.start_date or not req.end_date:
+                raise HTTPException(status_code=400, detail="start_date and end_date are required")
+            if poll.date_window is None:
+                raise HTTPException(status_code=400, detail="Date window missing")
+            try:
+                start = datetime.strptime(req.start_date, "%Y-%m-%d").date()
+                end = datetime.strptime(req.end_date, "%Y-%m-%d").date()
+                window_start = datetime.strptime(poll.date_window.start, "%Y-%m-%d").date()
+                window_end = datetime.strptime(poll.date_window.end, "%Y-%m-%d").date()
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+            if start > end:
+                raise HTTPException(status_code=400, detail="start_date must be before or equal to end_date")
+            if start < window_start or end > window_end:
+                raise HTTPException(status_code=400, detail="Dates must be within poll date_window")
+            storage.vote(poll_id, req.member_id, None, None, req.start_date, req.end_date)
         
         # Return updated poll results
         return build_poll_response(poll_id)

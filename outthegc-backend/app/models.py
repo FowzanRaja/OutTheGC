@@ -45,6 +45,11 @@ class PollOption(BaseModel):
     label: str
 
 
+class DateWindow(BaseModel):
+    start: str
+    end: str
+
+
 class SliderConfig(BaseModel):
     title: Optional[str] = None
     left_label: str
@@ -61,6 +66,7 @@ class Poll(BaseModel):
     question: str
     options: List[PollOption]
     slider: Optional[SliderConfig] = None
+    date_window: Optional[DateWindow] = None
     is_open: bool
     created_at: datetime
 
@@ -70,6 +76,8 @@ class Vote(BaseModel):
     member_id: str
     option_id: Optional[str] = None
     value: Optional[int] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
 
 
 class Option(BaseModel):
@@ -148,12 +156,15 @@ class CreatePollRequest(BaseModel):
     question: str
     options: List[CreatePollOptionInput] = []
     slider: Optional[SliderConfig] = None
+    date_window: Optional[DateWindow] = None
 
 
 class VoteRequest(BaseModel):
     member_id: str
     option_id: Optional[str] = None
     value: Optional[int] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
 
 
 class ClosePollRequest(BaseModel):

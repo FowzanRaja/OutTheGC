@@ -23,7 +23,7 @@ export type TripState = {
 
 export type Poll = {
   id: string;
-  type: "single" | "multi" | "slider";
+  type: "single" | "multi" | "slider" | "dates";
   question: string;
   options: Array<{ id: string; label: string }>;
   slider?: {
@@ -32,6 +32,10 @@ export type Poll = {
     min?: number;
     max?: number;
     step?: number;
+  } | null;
+  date_window?: {
+    start: string;
+    end: string;
   } | null;
   is_open: boolean;
   votes: Vote[];
@@ -42,6 +46,8 @@ export type Vote = {
   member_name: string;
   option_id?: string | null;
   value?: number | null;
+  start_date?: string | null;
+  end_date?: string | null;
 };
 
 export type ItineraryBlock = {
