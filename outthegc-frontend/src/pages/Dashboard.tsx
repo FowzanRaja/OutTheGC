@@ -157,15 +157,23 @@ export const Dashboard: React.FC = () => {
             <Card>
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-semibold">Polls</h2>
-                <Button
-                  variant="primary"
-                  onClick={() => navigate(`/trip/${trip.trip.id}/polls`)}
-                  disabled={!isOrganiser}
-                  title={!isOrganiser ? "Organiser only" : ""}
-                  className="text-xs px-3 py-1"
-                >
-                  Create Poll
-                </Button>
+                {isOrganiser ? (
+                  <Button
+                    variant="primary"
+                    onClick={() => navigate(`/trip/${trip.trip.id}/polls`)}
+                    className="text-xs px-3 py-1"
+                  >
+                    Create Poll
+                  </Button>
+                ) : (
+                  <Button
+                    variant="secondary"
+                    onClick={() => navigate(`/trip/${trip.trip.id}/polls`)}
+                    className="text-xs px-3 py-1"
+                  >
+                    View Polls
+                  </Button>
+                )}
               </div>
               {trip.polls.length === 0 ? (
                 <p className="text-slate-400">No polls yet</p>

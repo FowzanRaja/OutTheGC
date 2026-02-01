@@ -11,12 +11,12 @@ export async function createPoll(trip_id: string, body: {
   return data as Poll;
 }
 
-export async function vote(poll_id: string, body: { member_id: string; option_id: string }) {
-  const { data } = await api.post(`/polls/${poll_id}/vote`, body);
+export async function vote(trip_id: string, poll_id: string, body: { member_id: string; option_id: string }) {
+  const { data } = await api.post(`/trips/${trip_id}/polls/${poll_id}/vote`, body);
   return data;
 }
 
-export async function closePoll(poll_id: string, body: { member_id: string }) {
-  const { data } = await api.post(`/polls/${poll_id}/close`, body);
+export async function closePoll(trip_id: string, poll_id: string, body: { member_id: string }) {
+  const { data } = await api.post(`/trips/${trip_id}/polls/${poll_id}/close`, body);
   return data;
 }

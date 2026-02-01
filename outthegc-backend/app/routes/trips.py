@@ -78,20 +78,28 @@ def get_trip(trip_id: str) -> Dict[str, Any]:
         polls_summary = []
         trip_polls = storage.get_all_polls_for_trip(trip_id)
         for poll in trip_polls:
-            # Count votes per option
+            # Get votes for poll with member names
             votes_for_poll = storage.get_poll_votes(poll.id)
-            votes_by_option = {}
-            for opt in poll.options:
-                votes_by_option[opt.id] = sum(1 for v in votes_for_poll if v.option_id == opt.id)
+            votes_list = []
+            for vote in votes_for_poll:
+                try:
+                    member = storage.get_member_or_404(vote.member_id)
+                    member_name = member.name
+                except ValueError:
+                    member_name = "Unknown"
+                votes_list.append({
+                    "member_id": vote.member_id,
+                    "member_name": member_name,
+                    "option_id": vote.option_id
+                })
             
             polls_summary.append({
-                "poll_id": poll.id,
+                "id": poll.id,
                 "question": poll.question,
                 "type": poll.type,
                 "is_open": poll.is_open,
                 "options": [{"id": opt.id, "label": opt.label} for opt in poll.options],
-                "votes_by_option": votes_by_option,
-                "total_votes": len(votes_for_poll)
+                "votes": votes_list
             })
         
         # Build latest plan

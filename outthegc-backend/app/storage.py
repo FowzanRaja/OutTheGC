@@ -224,7 +224,10 @@ def create_poll(trip_id: str, poll_type: str, question: str, options: List[str])
 
 
 def vote(poll_id: str, member_id: str, option_id: str) -> Vote:
-    """Record a vote. Rejects if poll closed or option invalid."""
+    """Record a vote. Rejects if poll closed or option invalid.
+    For single choice: replaces previous vote
+    For multi choice: adds vote (allows multiple selections)
+    """
     poll = polls.get(poll_id)
     if not poll:
         raise ValueError(f"Poll {poll_id} not found")
@@ -239,9 +242,22 @@ def vote(poll_id: str, member_id: str, option_id: str) -> Vote:
     # Get member (validate exists)
     member = get_member_or_404(member_id)
     
-    # Store vote (overwrites if member already voted)
+    # For single choice polls: remove previous vote if it exists
+    if poll.type == "single":
+        # Find and remove existing vote by this member for this poll
+        key_to_remove = None
+        for key in votes:
+            if key[0] == poll_id and key[1] == member_id:
+                key_to_remove = key
+                break
+        if key_to_remove:
+            del votes[key_to_remove]
+    
+    # Store vote with unique key (poll_id, member_id, option_id) for multi-choice support
+    # Use (poll_id, member_id, option_id) as key to allow multiple votes
+    vote_key = (poll_id, member_id, option_id)
     vote = Vote(poll_id=poll_id, member_id=member_id, option_id=option_id)
-    votes[(poll_id, member_id)] = vote
+    votes[vote_key] = vote
     return vote
 
 
@@ -258,7 +274,12 @@ def close_poll(poll_id: str) -> Poll:
 
 def get_poll_votes(poll_id: str) -> List[Vote]:
     """Get all votes for a poll."""
-    return [v for (pid, mid), v in votes.items() if pid == poll_id]
+    return [v for key, v in votes.items() if key[0] == poll_id]
+
+
+def get_member_votes_for_poll(poll_id: str, member_id: str) -> List[Vote]:
+    """Get all votes by a specific member for a poll."""
+    return [v for key, v in votes.items() if key[0] == poll_id and key[1] == member_id]
 
 
 # ============================================================================
