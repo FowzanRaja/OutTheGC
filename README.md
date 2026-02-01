@@ -17,6 +17,8 @@ Built for collaborative trips: one shared dashboard, simple voting, and a trip b
 - See results update quickly (“live-ish” refresh)
 - Member list + role badges (organiser/member)
 
+YouTube demo: https://youtu.be/sCYJeIppT1Q
+
 ## Why it exists (the pitch)
 
 Group trips usually fail for one reason: no structure.
