@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { useTrip } from "../context/TripContext";
-import { updateBrief, setRequiredAttendees } from "../api/trips";
-import { Card } from "../components/ui/Card";
-import { Button } from "../components/ui/Button";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { updateBrief } from "../api/trips";
 import { Badge } from "../components/ui/Badge";
+import { Button } from "../components/ui/Button";
+import { Card } from "../components/ui/Card";
+import { useTrip } from "../context/TripContext";
 
 export const Dashboard: React.FC = () => {
   const { tripId: routeId } = useParams<{ tripId: string }>();
@@ -12,8 +12,9 @@ export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const [briefText, setBriefText] = useState("");
-  const [selectedRequired, setSelectedRequired] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copyButtonRef = useRef<HTMLButtonElement | null>(null);
 
   // Sync route trip ID with context
   useEffect(() => {
@@ -26,7 +27,6 @@ export const Dashboard: React.FC = () => {
   useEffect(() => {
     if (trip && !editing) {
       setBriefText(trip.trip.brief || "");
-      setSelectedRequired(trip.trip.required_member_ids || []);
     }
   }, [trip, editing]);
 
@@ -61,23 +61,10 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  const handleSaveRequired = async () => {
-    setLoading(true);
-    try {
-      await setRequiredAttendees(trip.trip.id, selectedRequired);
-      refresh();
-    } catch (err: any) {
-      console.error("Failed to update required attendees:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const formatLabel = (value: string) =>
+    value ? value.charAt(0).toUpperCase() + value.slice(1).toLowerCase() : value;
 
-  const toggleRequired = (memberId: string) => {
-    setSelectedRequired((prev) =>
-      prev.includes(memberId) ? prev.filter((id) => id !== memberId) : [...prev, memberId]
-    );
-  };
+  const activePolls = trip.polls;
 
   return (
     <div className="min-h-screen relative overflow-hidden text-white">
@@ -92,164 +79,106 @@ export const Dashboard: React.FC = () => {
           <p className="text-white/70">{trip.trip.origin}</p>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-6 mb-8">
-          {/* Trip Info */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Brief */}
-            <Card>
-              <div className="flex justify-between items-start mb-3">
-                <h2 className="text-lg font-semibold">Trip Brief</h2>
-                <Button
-                  variant="secondary"
-                  onClick={() => setEditing(!editing)}
-                  disabled={!isOrganiser}
-                  title={!isOrganiser ? "Organiser only" : ""}
-                  className="text-xs px-3 py-1"
-                >
-                  {editing ? "Cancel" : "Edit"}
+        {/* Trip Brief */}
+        <Card className="bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl transition-transform hover:-translate-y-0.5 hover:shadow-2xl">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold">Trip Brief</h2>
+              {!editing && <p className="text-slate-300 mt-2">{trip.trip.brief || "No brief provided"}</p>}
+            </div>
+            <Button
+              variant="secondary"
+              onClick={() => setEditing(!editing)}
+              disabled={!isOrganiser}
+              title={!isOrganiser ? "Organiser only" : ""}
+              className="text-xs px-3 py-1 shadow-lg hover:shadow-xl"
+            >
+              {editing ? "Cancel" : "Edit Brief"}
+            </Button>
+          </div>
+          {editing && (
+            <div className="mt-4 space-y-3">
+              <textarea
+                value={briefText}
+                onChange={(e) => setBriefText(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm text-slate-100"
+                rows={3}
+              />
+              <div className="flex gap-2">
+                <Button variant="primary" onClick={handleSaveBrief} disabled={loading} className="shadow-lg hover:shadow-xl">
+                  Save
+                </Button>
+                <Button variant="secondary" onClick={() => setEditing(false)} className="shadow-lg hover:shadow-xl">
+                  Cancel
                 </Button>
               </div>
-              {editing ? (
-                <div className="space-y-3">
-                  <textarea
-                    value={briefText}
-                    onChange={(e) => setBriefText(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm text-slate-100"
-                    rows={3}
-                  />
-                  <div className="flex gap-2">
-                    <Button variant="primary" onClick={handleSaveBrief} disabled={loading}>
-                      Save
-                    </Button>
-                    <Button variant="secondary" onClick={() => setEditing(false)}>
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-slate-300">{trip.trip.brief || "No brief provided"}</p>
-              )}
-            </Card>
+            </div>
+          )}
+        </Card>
 
-            {/* Members */}
-            <Card>
-              <h2 className="text-lg font-semibold mb-4">Members</h2>
-              <div className="space-y-2">
-                {trip.members.map((m) => (
-                  <div key={m.id} className="flex justify-between items-center p-3 bg-slate-800/50 rounded">
-                    <div>
-                      <p className="font-medium">{m.name}</p>
-                      <div className="flex gap-2 mt-1">
-                        <Badge>{m.role}</Badge>
-                        {m.has_submitted_constraints ? (
-                          <Badge>✓ Submitted</Badge>
-                        ) : (
-                          <Badge>Pending</Badge>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-
-            {/* Polls */}
-            <Card>
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold">Polls</h2>
-                <Button
-                  variant="primary"
-                  onClick={() => navigate(`/trip/${trip.trip.id}/polls`)}
-                  disabled={!isOrganiser}
-                  title={!isOrganiser ? "Organiser only" : ""}
-                  className="text-xs px-3 py-1"
-                >
-                  Create Poll
-                </Button>
-              </div>
-              {trip.polls.length === 0 ? (
-                <p className="text-slate-400">No polls yet</p>
-              ) : (
-                <div className="space-y-3">
-                  {trip.polls.map((poll) => (
-                    <div key={poll.id} className="p-3 bg-slate-800/50 rounded">
-                      <p className="font-medium">{poll.question}</p>
-                      <p className="text-xs text-slate-400 mt-1">
-                        {poll.votes.length} votes • {poll.is_open ? "Open" : "Closed"}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
+        {/* Members */}
+        <Card className="bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl transition-transform hover:-translate-y-0.5 hover:shadow-2xl">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Members</h2>
+            <Button variant="secondary" className="text-xs px-3 py-1 shadow-lg hover:shadow-xl">
+              Edit profile
+            </Button>
           </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Required Attendees (Organiser) */}
-            <Card className={!isOrganiser ? "opacity-50" : ""}>
-              <h2 className="text-lg font-semibold mb-4">Required Attendees</h2>
-              <div className="space-y-2 mb-4">
-                {trip.members.map((m) => (
-                  <label key={m.id} className={`flex items-center gap-2 ${isOrganiser ? "cursor-pointer hover:opacity-70" : "cursor-not-allowed"}`}>
-                    <input
-                      type="checkbox"
-                      checked={selectedRequired.includes(m.id)}
-                      onChange={() => toggleRequired(m.id)}
-                      disabled={!isOrganiser}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm">{m.name}</span>
-                  </label>
-                ))}
+          <div className="space-y-2">
+            {trip.members.map((m) => (
+              <div key={m.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 bg-white/5 border border-white/10 rounded-xl">
+                <p className="font-medium">{m.name}</p>
+                <div className="flex gap-2 flex-wrap">
+                  <Badge>{formatLabel(m.role)}</Badge>
+                  <Badge>{m.has_submitted_constraints ? "Submitted" : "Pending"}</Badge>
+                </div>
               </div>
-              <Button
-                variant="primary"
-                onClick={handleSaveRequired}
-                disabled={loading || !isOrganiser}
-                title={!isOrganiser ? "Organiser only" : ""}
-                className="w-full text-xs py-2"
-              >
-                Save
-              </Button>
-            </Card>
-
-            {/* Options */}
-            <Card>
-              <Button
-                variant="primary"
-                onClick={() => navigate(`/trip/${trip.trip.id}/options`)}
-                disabled={!isOrganiser}
-                title={!isOrganiser ? "Organiser only" : ""}
-                className="w-full"
-              >
-                Generate Options
-              </Button>
-            </Card>
-
-            {/* Trip Info */}
-            <Card>
-              <h3 className="text-sm font-semibold mb-2">Trip ID</h3>
-              <p className="text-xs font-mono bg-slate-800 p-2 rounded break-all">{trip.trip.id}</p>
-            </Card>
+            ))}
           </div>
-        </div>
+        </Card>
 
-        {/* Latest Plan */}
-        {trip.latest_plan && (
-          <Card>
-            <h2 className="text-lg font-semibold mb-4">Latest Plan (v{trip.latest_plan.version_num})</h2>
-            <div className="grid md:grid-cols-2 gap-4">
-              {trip.latest_plan.options.map((opt) => (
-                <div key={opt.id} className="p-4 bg-slate-800/50 rounded">
-                  <p className="font-semibold">{opt.title}</p>
-                  <p className="text-xs text-slate-400">{opt.destination}</p>
-                  <p className="text-xs mt-2">{opt.date_window}</p>
+        {/* Polls */}
+        <Card className="bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl transition-transform hover:-translate-y-0.5 hover:shadow-2xl">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Polls</h2>
+            <Button
+              variant="primary"
+              onClick={() => navigate(`/trip/${trip.trip.id}/polls`)}
+              disabled={!isOrganiser}
+              title={!isOrganiser ? "Organiser only" : ""}
+              className="text-xs px-3 py-1 shadow-lg hover:shadow-xl"
+            >
+              Create poll
+            </Button>
+          </div>
+          {activePolls.length === 0 ? (
+            <p className="text-slate-400">No active polls</p>
+          ) : (
+            <div className="space-y-3">
+              {activePolls.map((poll) => (
+                <div key={poll.id} className="p-3 bg-white/5 border border-white/10 rounded-xl">
+                  <p className="font-medium">{poll.question}</p>
+                  <p className="text-xs text-slate-300 mt-1">
+                    {poll.votes.length} votes • {poll.is_open ? "Open" : "Closed"}
+                  </p>
                 </div>
               ))}
             </div>
-          </Card>
-        )}
+          )}
+        </Card>
+
+        {/* Bottom action */}
+        <div className="flex justify-center pt-2">
+          <Button
+            variant="primary"
+            onClick={() => navigate(`/trip/${trip.trip.id}/options`)}
+            disabled={!isOrganiser}
+            title={!isOrganiser ? "Organiser only" : ""}
+            className="w-full sm:w-auto min-w-[220px] shadow-lg hover:shadow-xl"
+          >
+            Generate trip
+          </Button>
+        </div>
       </div>
     </div>
   );
