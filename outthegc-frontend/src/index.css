@@ -55,6 +55,101 @@ button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* OutTheGC slider look */
+.slider-outthegc {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.25);
+  outline: none;
+}
+
+.slider-outthegc::-webkit-slider-runnable-track {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.slider-outthegc::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+  margin-top: -4px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+}
+
+.slider-outthegc::-moz-range-track {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.slider-outthegc::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+  border: 2px solid rgba(255, 255, 255, 0.35);
+}
+
+/* Poll result bars */
+.otg-track {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+.otg-fill {
+  height: 100%;
+  background: linear-gradient(to right, rgba(45, 212, 191, 0.85), rgba(168, 85, 247, 0.85));
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  transition: width 250ms ease;
+}
+
+.otg-bar {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.otg-bar-gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(45, 212, 191, 0.85), rgba(123, 110, 230, 0.85), rgba(168, 85, 247, 0.85));
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+
+.otg-bar-mask {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.55);
+}
+
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;
