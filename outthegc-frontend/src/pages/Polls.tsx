@@ -487,38 +487,26 @@ export const Polls: React.FC = () => {
                           const isUserVote = userVotes[poll.id] === option.id;
                           const isUserMultiVote = selectedOptions.has(option.id);
                           const isSelected = singleVoteSelection[poll.id] === option.id;
-
-                          const isSingleClickable = poll.type === "single" && poll.is_open && !userHasVoted;
+                          const isClickable = poll.is_open && !userHasVoted;
 
                           return (
                             <div
                               key={option.id}
-                              className={`border border-slate-800 rounded-lg p-4 ${isSingleClickable ? "cursor-pointer hover:bg-slate-800/30" : ""}`}
+                              className={`border border-slate-800 rounded-lg p-4 ${isClickable ? "cursor-pointer hover:bg-slate-800/30" : ""}`}
                               onClick={() => {
-                                if (isSingleClickable) {
+                                if (!isClickable) return;
+                                if (poll.type === "multi") {
+                                  handleMultiVoteToggle(poll.id, option.id);
+                                } else {
                                   handleSingleVoteSelection(poll.id, option.id);
                                 }
                               }}
                             >
                               {/* Option Label */}
                               <div className="flex justify-between items-center mb-3">
-                                {poll.type === "multi" ? (
-                                  <div className="flex items-center gap-2">
-                                    {poll.is_open && !userHasVoted && (
-                                      <input
-                                        type="checkbox"
-                                        checked={isUserMultiVote}
-                                        onChange={() => handleMultiVoteToggle(poll.id, option.id)}
-                                        className="w-4 h-4"
-                                      />
-                                    )}
-                                    <span className="font-medium">{option.label}</span>
-                                  </div>
-                                ) : (
-                                  <div className="flex-1 text-left font-medium">
-                                    {option.label}
-                                  </div>
-                                )}
+                                <div className="flex-1 text-left font-medium">
+                                  {option.label}
+                                </div>
                                 <span className="text-xs text-slate-400">
                                   {voteCount} vote{voteCount !== 1 ? "s" : ""}
                                 </span>
@@ -554,7 +542,7 @@ export const Polls: React.FC = () => {
                                 <div className="text-xs text-indigo-400 font-medium">✓ Your vote</div>
                               )}
 
-                              {userHasVoted && isUserMultiVote && poll.type === "multi" && (
+                              {((userHasVoted && isUserMultiVote) || (!userHasVoted && isUserMultiVote)) && poll.type === "multi" && (
                                 <div className="text-xs text-indigo-400 font-medium">✓ Selected</div>
                               )}
                             </div>
