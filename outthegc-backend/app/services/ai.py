@@ -1,6 +1,10 @@
 import json
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+try:
+    from anthropic import Anthropic
+except ImportError:  # Optional if dependency not installed
+    Anthropic = None
 from app.models import PlanVersion, Option
 from app import storage, config
 from app.services import availability
@@ -83,13 +87,42 @@ def build_ai_prompt(trip_id: str) -> str:
     constraints = context['constraints']
     windows = context['best_windows']
     
-    prompt = f"""You are a travel planner. Plan a group trip based on the following:
+    prompt = f"""You are an expert travel planner AI and group decision assistant.
+
+Your task is to generate MULTIPLE realistic holiday plan options for a group of people,
+based strictly on the structured input provided.
+
+You must follow ALL instructions carefully.
+
+────────────────────────────────
+CONTEXT
+────────────────────────────────
+
+This is a collaborative group holiday planner.
+
+The group has already:
+- submitted availability
+- submitted budgets
+- submitted preferences
+- chosen a date window (or been given one)
+- optionally provided an organiser brief
+- optionally provided feedback from previous plans
+
+You are NOT deciding dates.
+You are NOT deciding who is attending.
+You are NOT resolving conflicts.
+
+You are ONLY generating holiday plan OPTIONS that respect the given constraints.
+
+────────────────────────────────
+INPUT DATA
+────────────────────────────────
 
 **Trip Details:**
 - Name: {trip['name']}
 - Origin: {trip['origin']}
-- Brief: {trip.get('brief', 'No brief provided')}
-- Seed destinations to consider: {', '.join(trip['destination_seed_list']) if trip['destination_seed_list'] else 'Open to suggestions'}
+- Organiser Brief: {trip.get('brief', 'No brief provided')}
+- Destination Candidates: {', '.join(trip['destination_seed_list']) if trip['destination_seed_list'] else 'Open to suggestions'}
 
 **Members:**
 {json.dumps(context['members'], indent=2)}
@@ -97,38 +130,133 @@ def build_ai_prompt(trip_id: str) -> str:
 **Member Constraints & Preferences:**
 {json.dumps(constraints, indent=2)}
 
-**Best Availability Windows (organiser + required attendees available for all days):**
+**Best Availability Windows:**
 {json.dumps(windows, indent=2)}
 
-**Task:**
-Generate 3 diverse trip options. Each must:
-1. Cover one of the best availability windows (or close)
-2. Respect budget constraints
-3. Include activities matching member preferences
-4. Have realistic transport and costs
+**Feedback Summary:**
+{json.dumps(context['feedback_summary'], indent=2)}
 
-Return ONLY a valid JSON array of 3 option objects, no other text.
-Each option must match this exact schema:
-{{
-  "id": "unique-id",
-  "title": "Option Title",
-  "destination": "City, Country",
-  "date_window": "2026-02-03..2026-02-06",
-  "summary": "Brief overview",
-  "itinerary": [
-    {{"day": 1, "activity": "description"}},
-    ...
-  ],
-  "transport": [
-    {{"leg": "origin -> destination", "mode": "flight", "duration": "2h", "cost_per_person": 150}}
-  ],
-  "costs": {{"accommodation": 600, "activities": 200, "transport": 150, "contingency": 100}},
-  "packing_list": ["item1", "item2"],
-  "rationale": "Why this option",
-  "assumptions": ["assumption1"]
-}}
+────────────────────────────────
+WHAT YOU MUST GENERATE
+────────────────────────────────
 
-Respond with ONLY the JSON array, no markdown, no explanation.
+You MUST generate EXACTLY **3 holiday options**.
+
+Each option must:
+- be clearly distinct from the others
+- target a different travel "style" where possible
+- use DIFFERENT destinations (vary style: beach vs city vs mountains, etc.)
+- use DIFFERENT date windows (spread across available windows)
+- stay realistic and internally consistent
+- respect budget and constraints
+
+Label them: Option A, Option B, Option C
+
+DO NOT invent extra options.
+DO NOT ask questions.
+DO NOT include explanations outside the JSON.
+
+────────────────────────────────
+OPTION REQUIREMENTS
+────────────────────────────────
+
+Each option MUST include:
+
+1. Destination
+2. Date window (use the provided one verbatim)
+3. Short summary (2–3 sentences)
+4. Day-by-day itinerary:
+   - Days numbered starting at Day 1
+   - Each day contains time blocks
+   - Include travel buffers and meals
+5. Estimated costs:
+   - total_per_person
+   - breakdown (transport, accommodation, food, activities, buffer)
+6. Transport plan:
+   - mock but realistic (flight / train / coach / car)
+7. Packing list:
+   - item + reason
+8. Rationale:
+   - explain why this option fits the group
+9. Assumptions:
+   - list any assumptions you made due to missing data
+
+────────────────────────────────
+STRICT OUTPUT FORMAT
+────────────────────────────────
+
+You MUST respond with **VALID JSON ONLY**.
+NO markdown.
+NO commentary.
+NO explanations.
+NO trailing text.
+
+Use EXACTLY this schema:
+
+[
+  {{
+    "id": "option-a",
+    "title": "string",
+    "destination": "City, Country",
+    "date_window": "string (use from best_windows verbatim)",
+    "summary": "2-3 sentences",
+    "itinerary": [
+      {{
+        "day": 1,
+        "blocks": [
+          {{
+            "time": "08:00-09:00",
+            "title": "Breakfast",
+            "notes": "details"
+          }}
+        ]
+      }}
+    ],
+    "costs": {{
+      "total_per_person": 950,
+      "breakdown": {{
+        "transport": 200,
+        "accommodation": 400,
+        "food": 180,
+        "activities": 120,
+        "buffer": 50
+      }}
+    }},
+    "transport": [
+      {{
+        "leg": "origin -> destination",
+        "mode": "flight|train|coach|car",
+        "duration": "2h 15m",
+        "cost_per_person": 150
+      }}
+    ],
+    "packing_list": [
+      "item: reason"
+    ],
+    "rationale": "Why this option fits the group",
+    "assumptions": ["assumption1", "assumption2"]
+  }}
+]
+
+────────────────────────────────
+GUARDRAILS
+────────────────────────────────
+
+- Do NOT exceed budgets unrealistically
+- Do NOT ignore organiser brief or constraints
+- Do NOT hallucinate unavailable destinations
+- Do NOT use real-time pricing or weather
+- Keep tone neutral and practical
+- Be concise but complete
+- Include reasonable spacing and gaps in daily schedules
+
+If any required information is missing:
+- Make a reasonable assumption
+- Document it in the assumptions list
+
+Failure to follow format = invalid output.
+
+BEGIN.
 """
     return prompt
 
@@ -221,25 +349,41 @@ def generate_mock_options(trip_id: str) -> List[Option]:
 # AI GENERATION
 # ============================================================================
 
-def call_claude_api(prompt: str) -> Optional[str]:
+def call_claude_api(prompt: str, *, debug: bool = False) -> Optional[str]:
     """
     Call Claude API for trip planning.
-    STUB for now - will implement with config.CLAUDE_API_KEY later.
     """
     if not config.CLAUDE_API_KEY:
+        if debug:
+            return "MISSING_CLAUDE_API_KEY"
         return None
-    
-    # TODO: Implement actual Claude API call
-    # from anthropic import Anthropic
-    # client = Anthropic(api_key=config.CLAUDE_API_KEY)
-    # message = client.messages.create(
-    #     model="claude-3-5-sonnet-20241022",
-    #     max_tokens=2048,
-    #     messages=[{"role": "user", "content": prompt}]
-    # )
-    # return message.content[0].text
-    
-    return None
+
+    if Anthropic is None:
+        if debug:
+            return "ANTHROPIC_SDK_NOT_INSTALLED"
+        return None
+
+    try:
+        client = Anthropic(api_key=config.CLAUDE_API_KEY)
+        message = client.messages.create(
+            model=config.CLAUDE_MODEL,
+            max_tokens=4096,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        if not message or not getattr(message, "content", None):
+            return "EMPTY_RESPONSE" if debug else None
+
+        parts = []
+        for block in message.content:
+            text = getattr(block, "text", None)
+            if text:
+                parts.append(text)
+        text = "".join(parts).strip()
+        return text or ("EMPTY_TEXT" if debug else None)
+    except Exception as e:
+        if debug:
+            return f"ERROR: {type(e).__name__}: {e}"
+        return None
 
 
 def generate_options(trip_id: str) -> Dict[str, Any]:
@@ -293,6 +437,10 @@ def generate_options(trip_id: str) -> Dict[str, Any]:
         
         # Parse and validate Claude response
         try:
+            # Log raw response for debugging
+            print(f"[DEBUG] Claude raw response length: {len(response)}")
+            print(f"[DEBUG] Claude response preview: {response[:500]}...")
+            
             parsed = json.loads(response)
             if not isinstance(parsed, list):
                 parsed = [parsed]

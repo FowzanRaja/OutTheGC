@@ -14,9 +14,9 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(ai.router)
 app.include_router(trips.router)
 app.include_router(polls.router)
-app.include_router(ai.router)
 app.include_router(feedback.router)
 
 # Root endpoint

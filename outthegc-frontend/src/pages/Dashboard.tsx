@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { updateBrief } from "../api/trips";
+import { generateOptions } from "../api/options";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
@@ -14,9 +15,9 @@ export const Dashboard: React.FC = () => {
   const [briefText, setBriefText] = useState("");
   const [loading, setLoading] = useState(false);
   const [generatingTrip, setGeneratingTrip] = useState(false);
+  const [generatedContent, setGeneratedContent] = useState("");
   const [copied, setCopied] = useState(false);
   const copyButtonRef = useRef<HTMLButtonElement>(null);
-  const generatedContent = "";
 
   // Sync route trip ID with context
   useEffect(() => {
@@ -91,6 +92,97 @@ export const Dashboard: React.FC = () => {
       setCopied(true);
     } catch (err) {
       console.error("Failed to copy trip id:", err);
+    }
+  };
+
+  const formatGeneratedPlan = (data: any) => {
+    const options = Array.isArray(data?.options) ? data.options : [];
+    if (options.length === 0) {
+      return "No options generated.";
+    }
+
+    return options
+      .map((opt: any, index: number) => {
+        const itinerary = Array.isArray(opt.itinerary)
+          ? opt.itinerary
+              .map((item: any) => {
+                const day = item?.day ?? "?";
+                const blocks = Array.isArray(item?.blocks) ? item.blocks : [];
+                if (blocks.length > 0) {
+                  const blockLines = blocks
+                    .map((block: any) => {
+                      const time = block?.time ? `${block.time} ` : "";
+                      const title = block?.title ?? "";
+                      const notes = block?.notes ? ` — ${block.notes}` : "";
+                      const line = `${time}${title}${notes}`.trim();
+                      return line ? `- ${line}` : "";
+                    })
+                    .filter(Boolean)
+                    .join("\n");
+                  return `Day ${day}:\n${blockLines}`.trim();
+                }
+                const activity = item?.activity ?? item?.title ?? "";
+                return `Day ${day}: ${activity}`.trim();
+              })
+              .filter(Boolean)
+              .join("\n")
+          : "";
+
+        const transport = Array.isArray(opt.transport)
+          ? opt.transport
+              .map((t: any) => {
+                const leg = t?.leg ?? "";
+                const mode = t?.mode ? ` (${t.mode})` : "";
+                const duration = t?.duration ? `, ${t.duration}` : "";
+                const cost = t?.cost_per_person ? `, $${t.cost_per_person}` : "";
+                return `${leg}${mode}${duration}${cost}`.trim();
+              })
+              .filter(Boolean)
+              .join("\n")
+          : "";
+
+        const costs = opt?.costs;
+        const totalPerPerson = costs?.total_per_person ? `$${costs.total_per_person}` : "";
+        const breakdown = costs?.breakdown
+          ? Object.entries(costs.breakdown)
+              .map(([key, value]) => `${key}: $${value}`)
+              .join(", ")
+          : "";
+
+        const packingList = Array.isArray(opt.packing_list)
+          ? opt.packing_list.filter(Boolean).join("; ")
+          : "";
+
+        return [
+          `${index + 1}. ${opt.title || "Trip Option"}`,
+          opt.destination ? `Destination: ${opt.destination}` : "",
+          opt.date_window ? `Dates: ${opt.date_window}` : "",
+          opt.summary ? `Summary: ${opt.summary}` : "",
+          itinerary ? `Itinerary:\n${itinerary}` : "",
+          transport ? `Transport:\n${transport}` : "",
+          totalPerPerson ? `Total per person: ${totalPerPerson}` : "",
+          breakdown ? `Cost breakdown: ${breakdown}` : "",
+          packingList ? `Packing list: ${packingList}` : "",
+          opt.rationale ? `Rationale: ${opt.rationale}` : "",
+          Array.isArray(opt.assumptions) && opt.assumptions.length > 0
+            ? `Assumptions: ${opt.assumptions.join("; ")}`
+            : "",
+        ]
+          .filter(Boolean)
+          .join("\n");
+      })
+      .join("\n\n");
+  };
+
+  const handleGenerateTrip = async () => {
+    setGeneratingTrip(true);
+    setGeneratedContent("Generating...");
+    try {
+      const createdBy = trip.trip.organiser_member_id;
+      const data = await generateOptions(trip.trip.id, { created_by_member_id: createdBy });
+      setGeneratedContent(formatGeneratedPlan(data));
+    } catch (err: any) {
+      setGeneratedContent(err?.message || "Failed to generate trip plan");
     }
   };
 
@@ -249,7 +341,7 @@ export const Dashboard: React.FC = () => {
         <div className="flex justify-center pt-8">
           <Button
             variant="primary"
-            onClick={() => setGeneratingTrip(true)}
+            onClick={handleGenerateTrip}
             disabled={!isOrganiser}
             title={!isOrganiser ? "Organiser only" : ""}
             className="w-full sm:w-auto min-w-[220px] shadow-lg hover:shadow-xl"
@@ -272,7 +364,7 @@ export const Dashboard: React.FC = () => {
                   Close
                 </Button>
               </div>
-              <div className="text-slate-300 p-4 bg-slate-800/30 rounded-lg min-h-80 flex items-center justify-center">
+              <div className="text-slate-300 p-4 bg-slate-800/30 rounded-lg min-h-80 whitespace-pre-wrap">
                 {generatedContent || "AI-generated trip plan will appear here"}
               </div>
             </Card>
