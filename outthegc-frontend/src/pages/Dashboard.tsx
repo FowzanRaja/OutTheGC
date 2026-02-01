@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { updateBrief } from "../api/trips";
 import { Badge } from "../components/ui/Badge";
@@ -13,8 +13,8 @@ export const Dashboard: React.FC = () => {
   const [editing, setEditing] = useState(false);
   const [briefText, setBriefText] = useState("");
   const [loading, setLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const copyButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [generatingTrip, setGeneratingTrip] = useState(false);
+  const generatedContent = "";
 
   // Sync route trip ID with context
   useEffect(() => {
@@ -75,15 +75,29 @@ export const Dashboard: React.FC = () => {
       <div className="relative z-10 max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2">{trip.trip.name}</h1>
-          <p className="text-white/70">{trip.trip.origin}</p>
+          <h1 className="text-4xl font-bold mb-2">Group holiday</h1>
+          <p className="text-white/70">{trip.trip.name}</p>
         </div>
+
+        {/* Content Cards */}
+        <div className="space-y-6">
+          {/* Trip ID Box */}
+          <Card className="bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-300 mb-1">Trip ID</h3>
+                <p className="text-xs font-mono bg-slate-800/50 px-3 py-2 rounded border border-slate-700 break-all">
+                  {trip.trip.id}
+                </p>
+              </div>
+            </div>
+          </Card>
 
         {/* Trip Brief */}
         <Card className="bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl transition-transform hover:-translate-y-0.5 hover:shadow-2xl">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-lg font-semibold">Trip Brief</h2>
+              <h2 className="text-lg font-semibold">Trip Brief (Used by AI)</h2>
               {!editing && <p className="text-slate-300 mt-2">{trip.trip.brief || "No brief provided"}</p>}
             </div>
             <Button
@@ -120,9 +134,6 @@ export const Dashboard: React.FC = () => {
         <Card className="bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl transition-transform hover:-translate-y-0.5 hover:shadow-2xl">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">Members</h2>
-            <Button variant="secondary" className="text-xs px-3 py-1 shadow-lg hover:shadow-xl">
-              Edit profile
-            </Button>
           </div>
           <div className="space-y-2">
             {trip.members.map((m) => (
@@ -130,7 +141,6 @@ export const Dashboard: React.FC = () => {
                 <p className="font-medium">{m.name}</p>
                 <div className="flex gap-2 flex-wrap">
                   <Badge>{formatLabel(m.role)}</Badge>
-                  <Badge>{m.has_submitted_constraints ? "Submitted" : "Pending"}</Badge>
                 </div>
               </div>
             ))}
@@ -141,15 +151,23 @@ export const Dashboard: React.FC = () => {
         <Card className="bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl transition-transform hover:-translate-y-0.5 hover:shadow-2xl">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">Polls</h2>
-            <Button
-              variant="primary"
-              onClick={() => navigate(`/trip/${trip.trip.id}/polls`)}
-              disabled={!isOrganiser}
-              title={!isOrganiser ? "Organiser only" : ""}
-              className="text-xs px-3 py-1 shadow-lg hover:shadow-xl"
-            >
-              Create poll
-            </Button>
+            {isOrganiser ? (
+              <Button
+                variant="primary"
+                onClick={() => navigate(`/trip/${trip.trip.id}/polls`)}
+                className="text-xs px-3 py-1 shadow-lg hover:shadow-xl"
+              >
+                Create poll
+              </Button>
+            ) : (
+              <Button
+                variant="secondary"
+                onClick={() => navigate(`/trip/${trip.trip.id}/polls`)}
+                className="text-xs px-3 py-1 shadow-lg hover:shadow-xl"
+              >
+                View Polls
+              </Button>
+            )}
           </div>
           {activePolls.length === 0 ? (
             <p className="text-slate-400">No active polls</p>
@@ -159,19 +177,20 @@ export const Dashboard: React.FC = () => {
                 <div key={poll.id} className="p-3 bg-white/5 border border-white/10 rounded-xl">
                   <p className="font-medium">{poll.question}</p>
                   <p className="text-xs text-slate-300 mt-1">
-                    {poll.votes.length} votes • {poll.is_open ? "Open" : "Closed"}
+                    {poll.votes.length} votes
                   </p>
                 </div>
               ))}
             </div>
           )}
         </Card>
+        </div>
 
         {/* Bottom action */}
-        <div className="flex justify-center pt-2">
+        <div className="flex justify-center pt-8">
           <Button
             variant="primary"
-            onClick={() => navigate(`/trip/${trip.trip.id}/options`)}
+            onClick={() => setGeneratingTrip(true)}
             disabled={!isOrganiser}
             title={!isOrganiser ? "Organiser only" : ""}
             className="w-full sm:w-auto min-w-[220px] shadow-lg hover:shadow-xl"
@@ -179,6 +198,27 @@ export const Dashboard: React.FC = () => {
             Generate trip
           </Button>
         </div>
+
+        {/* AI Generated Content Box */}
+        {generatingTrip && (
+          <div className="mt-8">
+            <Card className="bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl min-h-96">
+              <div className="flex justify-between items-start mb-4">
+                <h2 className="text-2xl font-semibold">Generated Trip Plan</h2>
+                <Button
+                  variant="secondary"
+                  onClick={() => setGeneratingTrip(false)}
+                  className="text-xs px-3 py-1"
+                >
+                  Close
+                </Button>
+              </div>
+              <div className="text-slate-300 p-4 bg-slate-800/30 rounded-lg min-h-80 flex items-center justify-center">
+                {generatedContent || "AI-generated trip plan will appear here"}
+              </div>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );
