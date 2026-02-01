@@ -33,6 +33,25 @@ def build_plan_response(plan_version) -> Dict[str, Any]:
     }
 
 
+@router.get("/claude-test")
+def claude_test() -> Dict[str, Any]:
+    """Simple Claude connectivity test."""
+    response = ai.call_claude_api(
+        "Reply with exactly 10 random french words separated by single spaces. No punctuation.",
+        debug=True,
+    )
+    if not response:
+        return {"ok": False, "detail": "Claude unavailable"}
+    if response.startswith("ERROR:") or response in {
+        "MISSING_CLAUDE_API_KEY",
+        "ANTHROPIC_SDK_NOT_INSTALLED",
+        "EMPTY_RESPONSE",
+        "EMPTY_TEXT",
+    }:
+        return {"ok": False, "detail": response}
+    return {"ok": True, "response": response}
+
+
 @router.post("/{trip_id}/generate-options")
 def generate_options(trip_id: str, req: GenerateOptionsRequest) -> Dict[str, Any]:
     """Generate trip options using AI. Organiser only."""
