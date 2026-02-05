@@ -17,7 +17,7 @@ Built for collaborative trips: one shared dashboard, simple voting, and a trip b
 - See results update quickly (“live-ish” refresh)
 - Member list + role badges (organiser/member)
 
-YouTube demo: [https://youtu.be/sCYJeIppT1Q](https://youtu.be/JH8HRHUFkDs)
+YouTube demo: https://youtu.be/JH8HRHUFkDs
 
 ## Why it exists (the pitch)
 
